@@ -77,6 +77,31 @@ Dependencies point downward:
 Every push and pull request runs lint, the format check and a production build
 (`.github/workflows/ci.yml`).
 
+## Backend
+
+Vercel serverless functions in `api/` with a [Neon](https://neon.tech) Postgres database:
+
+| Route              | Method    | Purpose                                                 |
+| ------------------ | --------- | ------------------------------------------------------- |
+| `/api/auth/signup` | POST      | `{ name, email, password }` → creates account, signs in |
+| `/api/auth/login`  | POST      | `{ email, password, remember }` → signs in              |
+| `/api/auth/logout` | POST      | ends the session                                        |
+| `/api/auth/me`     | GET       | the signed-in user, or 401                              |
+| `/api/workspace`   | GET / PUT | the user's workspace (`{ data, prefs, views }`)         |
+
+Passwords are hashed with scrypt; sessions are random tokens in an `HttpOnly` cookie, stored hashed.
+The workspace is saved as one JSON document with a version number, so a stale tab gets a 409 and
+reloads the latest copy instead of overwriting it. Tables are created on the first request
+(`db/schema.sql` has the same SQL).
+
+When `/api` isn't reachable (plain `npm run dev`), the app runs as a local demo saved in the browser.
+To run with the backend locally, use `vercel dev` with `DATABASE_URL` in `.env.local`
+(`vercel env pull .env.local`).
+
 ## Deploy
 
-`vercel.json` builds with Vite and serves `dist/`.
+`vercel.json` builds with Vite and serves `dist/`; files in `api/` deploy as functions.
+
+1. In the Vercel project, open **Storage → Create Database → Neon** (or Marketplace → Neon) and
+   connect it to the project. This sets `DATABASE_URL`.
+2. Redeploy. The tables are created automatically.

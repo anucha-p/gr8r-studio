@@ -54,11 +54,31 @@ import './features/archive.js';
 import './actions/teams.js';
 import './actions/subtasks.js';
 import './actions/archive.js';
-import { S, D } from './core/store.js';
-import { A } from './actions/actions.js';
+import { S, D, remote } from './core/store.js';
+import { ApiError, api } from './core/api.js';
+import { toast } from './ui/toast.js';
+import { A, signedIn } from './actions/actions.js';
 import { ROUTE_NAMES, render, go } from './shell/render.js';
 
-(function init() {
+/* Checks for a backend session. With no backend (plain `vite` dev server) the app stays a
+   local demo saved in this browser; with one, the workspace loads from the server. */
+async function connect() {
+  try {
+    const { user } = await api('auth/me');
+    S.ui.backend = true;
+    await signedIn(user, false);
+    return true;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) S.ui.backend = true;
+    return false;
+  }
+}
+remote.onConflict = () => {
+  render();
+  toast('This workspace was updated in another tab. Showing the latest version.', { kind: 'info' });
+};
+
+(async function init() {
   document.documentElement.lang = 'en';
   if (!document.getElementById('sr-live')) {
     const l = document.createElement('div');
@@ -69,7 +89,9 @@ import { ROUTE_NAMES, render, go } from './shell/render.js';
   }
   const h = (location.hash || '').slice(1);
   const authRoutes = ['login', 'signup', 'forgot', 'reset', 'verify', 'onboarding'];
-  if (authRoutes.includes(h)) S.ui.auth = h;
+  const signedInNow = await connect();
+  if (S.ui.backend && !signedInNow) S.ui.auth = ['login', 'signup'].includes(h) ? h : 'login';
+  else if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
   else S.ui.route = S.prefs.home || 'home';
   render();
