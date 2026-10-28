@@ -4,7 +4,25 @@
 import { $, $$, TODAY, addD, dOff, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
 import { PR, PSTAT, ST } from '../core/constants.js';
 import { seed } from '../data/seed.js';
-import { D, DEFAULT_PREFS, S, allTasks, canSee, commentsOf, logAct, me, mem, proj, save, task, tasksOf, visibleProjects } from '../core/store.js';
+import { api } from '../core/api.js';
+import {
+  D,
+  DEFAULT_PREFS,
+  S,
+  STORE_KEY,
+  pullRemote,
+  allTasks,
+  canSee,
+  commentsOf,
+  logAct,
+  me,
+  mem,
+  proj,
+  save,
+  task,
+  tasksOf,
+  visibleProjects,
+} from '../core/store.js';
 import { fileType, fsize } from '../ui/helpers.js';
 import { effectiveDark } from '../core/theme.js';
 import { mutate, toast } from '../ui/toast.js';
@@ -1753,7 +1771,16 @@ A.newWorkspace = () => {
   S.ui.onbData.url = '';
   render();
 };
-A.signOut = () => {
+A.signOut = async () => {
+  if (S.ui.user) {
+    await api('auth/logout', { method: 'POST' }).catch(() => {});
+    S.ui.user = null;
+    try {
+      localStorage.removeItem(STORE_KEY);
+    } catch {
+      /* storage blocked */
+    }
+  }
   S.ui.pop = null;
   S.ui.palette = null;
   S.ui.drawer = null;
@@ -2095,9 +2122,40 @@ A.doLogin = () => {
     if (!e.email) $('#l-pw').value = pw;
     return;
   }
-  loadingBtn('login-btn', 750, () => enterApp(`Signed in as ${em}`));
+  if (!S.ui.backend) return loadingBtn('login-btn', 750, () => enterApp(`Signed in as ${em}`));
+  authRequest('login-btn', 'auth/login', { email: em, password: pw, remember: !!$('#l-rem')?.checked }, async r => {
+    await signedIn(r.user, false);
+    enterApp(`Signed in as ${r.user.email}`);
+  });
 };
+/* Sends an auth form to the API; a field-level error is shown under that field, anything else as a banner. */
+async function authRequest(btnId, path, body, onOk) {
+  const b = document.getElementById(btnId);
+  b?.classList.add('is-loading');
+  b?.setAttribute('aria-busy', 'true');
+  try {
+    await onOk(await api(path, { method: 'POST', body }));
+  } catch (err) {
+    const typed = $$('.auth input').map(i => [i.id, i.value]);
+    S.ui.errors = err.body?.field
+      ? { [err.body.field]: err.message }
+      : { login: err.body ? err.message : "Can't reach the server. Check your connection and try again." };
+    if (path === 'auth/signup' && !err.body?.field) S.ui.errors.email = S.ui.errors.login;
+    render();
+    typed.forEach(([id, v]) => id && $('#' + CSS.escape(id)) && ($('#' + CSS.escape(id)).value = v));
+  }
+}
+export async function signedIn(user, fresh) {
+  S.ui.user = user;
+  if (fresh) S.prefs.name = user.name;
+  await pullRemote(fresh);
+}
 A.socialAuth = el => {
+  if (S.ui.backend && el.dataset.v === 'Google') {
+    el.classList.add('is-loading');
+    return location.assign('/api/auth/google');
+  }
+  if (S.ui.backend) return toast(`${el.dataset.v} sign-in isn't set up yet. Use your email and password.`, { kind: 'info' });
   el.classList.add('is-loading');
   setTimeout(() => enterApp(`Signed in with ${el.dataset.v}`), 800);
 };
@@ -2116,6 +2174,11 @@ A.doSignup = () => {
     $('#s-email').value = em;
     return;
   }
+  if (S.ui.backend)
+    return authRequest('signup-btn', 'auth/signup', { name: nm, email: em, password: pw }, async r => {
+      await signedIn(r.user, true);
+      A.verified();
+    });
   loadingBtn('signup-btn', 800, () => {
     S.ui.auth = 'verify';
     startResend();

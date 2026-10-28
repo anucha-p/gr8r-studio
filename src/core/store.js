@@ -2,6 +2,7 @@
 import { TODAY, diffD, iso, parse, uid } from './utils.js';
 import { PCOLORS, TEAMS_SEED } from './constants.js';
 import { seed } from '../data/seed.js';
+import { ApiError, api } from './api.js';
 
 export const STORE_KEY = 'gr8r.v2';
 export const DEFAULT_PREFS = {
@@ -42,6 +43,8 @@ export const S = {
     authStep: 'login',
     onb: 0,
     onbData: { use: 'product', team: 'kanban', size: '2-10', ws: '', proj: 'Website Launch', tmpl: 'web', invites: '' },
+    user: null,
+    backend: false,
     route: 'home',
     params: {},
     history: [],
@@ -91,7 +94,48 @@ export function save() {
     } catch {
       /* storage full or blocked: keep working in memory */
     }
+    if (S.ui.user) pushRemote();
   }, 150);
+}
+
+/* ---------- server sync (signed-in users) ---------- */
+export const remote = { version: 0, busy: false, again: false, onConflict: null };
+const snapshot = () => ({ data: S.data, prefs: S.prefs, views: S.views });
+export function applyState(st) {
+  S.data = st.data;
+  S.prefs = Object.assign({}, DEFAULT_PREFS, st.prefs || {});
+  S.views = st.views || {};
+}
+/* Loads the user's workspace; a brand-new account starts from fresh seed data. */
+export async function pullRemote(fresh) {
+  const r = await api('workspace');
+  remote.version = r.version;
+  if (r.state) applyState(r.state);
+  else {
+    if (fresh) S.data = seed();
+    await pushRemote();
+  }
+}
+/* One request in flight at a time; edits made meanwhile go out in the next one. */
+export async function pushRemote() {
+  if (remote.busy) return void (remote.again = true);
+  remote.busy = true;
+  try {
+    const r = await api('workspace', { method: 'PUT', body: { state: snapshot(), version: remote.version } });
+    remote.version = r.version;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409 && e.body.state) {
+      remote.version = e.body.version;
+      applyState(e.body.state);
+      remote.onConflict?.();
+    } else console.warn('Workspace sync failed', e);
+  } finally {
+    remote.busy = false;
+    if (remote.again) {
+      remote.again = false;
+      pushRemote();
+    }
+  }
 }
 
 /* ---------- lookups ---------- */
