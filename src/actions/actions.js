@@ -2151,6 +2151,10 @@ export async function signedIn(user, fresh) {
   await pullRemote(fresh);
 }
 A.socialAuth = el => {
+  if (S.ui.backend && el.dataset.v === 'Google') {
+    el.classList.add('is-loading');
+    return location.assign('/api/auth/google');
+  }
   if (S.ui.backend) return toast(`${el.dataset.v} sign-in isn't set up yet. Use your email and password.`, { kind: 'info' });
   el.classList.add('is-loading');
   setTimeout(() => enterApp(`Signed in with ${el.dataset.v}`), 800);

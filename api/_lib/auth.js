@@ -13,6 +13,7 @@ export async function hashPassword(pw) {
   return `scrypt$${salt.toString('base64')}$${key.toString('base64')}`;
 }
 export async function verifyPassword(pw, stored) {
+  if (!stored.startsWith('scrypt$')) return false;
   const [, salt, key] = stored.split('$');
   const want = Buffer.from(key, 'base64');
   const got = await scrypt(pw, Buffer.from(salt, 'base64'), want.length);
@@ -45,12 +46,13 @@ export async function currentUser(req) {
   return rows[0] || null;
 }
 
-function readCookie(req) {
-  const m = (req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
+export function readCookie(req, name = COOKIE) {
+  const m = (req.headers.cookie || '').match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
   return m ? decodeURIComponent(m[1]) : null;
 }
-function setCookie(res, value, maxAge) {
+export function setCookie(res, value, maxAge, name = COOKIE) {
   const secure = process.env.VERCEL_ENV ? '; Secure' : '';
   const age = maxAge === null ? '' : `; Max-Age=${maxAge}`;
-  res.setHeader('Set-Cookie', `${COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax${secure}${age}`);
+  const prev = [res.getHeader('Set-Cookie') || []].flat();
+  res.setHeader('Set-Cookie', [...prev, `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax${secure}${age}`]);
 }

@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
   id         text PRIMARY KEY,
   email      text NOT NULL UNIQUE,
   name       text NOT NULL,
-  pw_hash    text NOT NULL,
+  pw_hash    text NOT NULL, -- '' for accounts created with Google
+  google_id  text UNIQUE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS sessions (

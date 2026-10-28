@@ -105,3 +105,7 @@ To run with the backend locally, use `vercel dev` with `DATABASE_URL` in `.env.l
 1. In the Vercel project, open **Storage → Create Database → Neon** (or Marketplace → Neon) and
    connect it to the project. This sets `DATABASE_URL`.
 2. Redeploy. The tables are created automatically.
+3. Optional, for **Continue with Google**: in Google Cloud Console → APIs & Services → Credentials,
+   create an OAuth client ID (type _Web application_) with the authorized redirect URI
+   `https://<your-domain>/api/auth/google-callback`. Add `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET` to the Vercel project's environment variables and redeploy.
