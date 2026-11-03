@@ -79,7 +79,11 @@ Every push and pull request runs lint, the format check and a production build
 
 ## Backend
 
-Vercel serverless functions in `api/` with a [Neon](https://neon.tech) Postgres database:
+A Vercel serverless backend in `api/` with a [Neon](https://neon.tech) Postgres database.
+All routes run in one serverless function, `api/router.js` (the Hobby plan allows 12 per
+deployment). `vercel.json` rewrites `/api/<route>` to it, and the handlers live in `api/_routes/`
+(folders starting with `_` aren't deployed as functions). Add new routes to the table in
+`api/router.js`.
 
 | Route                | Method              | Purpose                                                                                 |
 | -------------------- | ------------------- | --------------------------------------------------------------------------------------- |

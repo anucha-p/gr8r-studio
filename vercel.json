@@ -2,5 +2,8 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!api/|assets/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/:route*", "destination": "/api/router?route=:route*" },
+    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+  ]
 }

@@ -2,9 +2,9 @@
    GET                → { sessions: [{ id, device, created_at, expires_at, current }], hasPassword }
    DELETE ?id=…       → signs that session out
    DELETE ?others=1   → signs out every session except this one */
-import { db } from './_lib/db.js';
-import { currentUser } from './_lib/auth.js';
-import { json, route } from './_lib/http.js';
+import { db } from '../_lib/db.js';
+import { currentUser } from '../_lib/auth.js';
+import { json, route } from '../_lib/http.js';
 
 // Sessions are identified to the browser by a prefix of the token hash, never the token itself.
 const ID_LEN = 16;

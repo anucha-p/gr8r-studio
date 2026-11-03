@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
-import { db } from '../_lib/db.js';
-import { hashPassword, startSession } from '../_lib/auth.js';
-import { EMAIL_RE, json, route } from '../_lib/http.js';
-import { acceptInvite, findInvite, noUsersYet } from '../_lib/invites.js';
+import { db } from '../../_lib/db.js';
+import { hashPassword, startSession } from '../../_lib/auth.js';
+import { EMAIL_RE, json, route } from '../../_lib/http.js';
+import { acceptInvite, findInvite, noUsersYet } from '../../_lib/invites.js';
 
 export default route(['POST'], async (req, res, { name, email, password, invite: token }) => {
   name = String(name || '').trim();

@@ -1,6 +1,6 @@
-import { db } from '../_lib/db.js';
-import { startSession, verifyPassword } from '../_lib/auth.js';
-import { json, route } from '../_lib/http.js';
+import { db } from '../../_lib/db.js';
+import { startSession, verifyPassword } from '../../_lib/auth.js';
+import { json, route } from '../../_lib/http.js';
 
 export default route(['POST'], async (req, res, { email, password, remember }) => {
   email = String(email || '')

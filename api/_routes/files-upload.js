@@ -1,9 +1,9 @@
 /* Issues short-lived tokens so the browser can upload straight to Vercel Blob (no 4.5 MB
    function body limit). Only signed-in users, only into their own folder, up to 100 MB. */
 import { handleUpload } from '@vercel/blob/client';
-import { currentUser } from './_lib/auth.js';
-import { MAX_FILE_BYTES, configured, ownPath } from './_lib/blob.js';
-import { json, route } from './_lib/http.js';
+import { currentUser } from '../_lib/auth.js';
+import { MAX_FILE_BYTES, configured, ownPath } from '../_lib/blob.js';
+import { json, route } from '../_lib/http.js';
 
 export default route(['POST'], async (req, res, body) => {
   if (!configured()) return json(res, 503, { error: 'File uploads aren’t set up yet: connect a Vercel Blob store to the project.' });

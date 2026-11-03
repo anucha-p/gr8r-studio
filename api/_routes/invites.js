@@ -3,10 +3,10 @@
    GET                   → { invites: [{ email, created_at, expires_at, accepted }] } sent by the user
    POST { email }        → { email, token } a fresh invite link token (replaces an unused one)
    DELETE ?email=…       → revokes the user's unused invite for that address */
-import { currentUser } from './_lib/auth.js';
-import { db } from './_lib/db.js';
-import { createInvite, findInvite } from './_lib/invites.js';
-import { EMAIL_RE, json, route } from './_lib/http.js';
+import { currentUser } from '../_lib/auth.js';
+import { db } from '../_lib/db.js';
+import { createInvite, findInvite } from '../_lib/invites.js';
+import { EMAIL_RE, json, route } from '../_lib/http.js';
 
 export default route(['GET', 'POST', 'DELETE'], async (req, res, body) => {
   if (req.method === 'GET' && req.query.token) {

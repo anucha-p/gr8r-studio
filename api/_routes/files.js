@@ -3,9 +3,9 @@
    DELETE ?path=…           → deletes the file */
 import { Readable } from 'node:stream';
 import { del, get, issueSignedToken, presignUrl } from '@vercel/blob';
-import { currentUser } from './_lib/auth.js';
-import { configured, ownPath } from './_lib/blob.js';
-import { json, route } from './_lib/http.js';
+import { currentUser } from '../_lib/auth.js';
+import { configured, ownPath } from '../_lib/blob.js';
+import { json, route } from '../_lib/http.js';
 
 export default route(['GET', 'DELETE'], async (req, res) => {
   if (!configured()) return json(res, 503, { error: 'File storage isn’t set up yet.' });

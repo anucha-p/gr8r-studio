@@ -1,5 +1,5 @@
-import { currentUser } from '../_lib/auth.js';
-import { json, route } from '../_lib/http.js';
+import { currentUser } from '../../_lib/auth.js';
+import { json, route } from '../../_lib/http.js';
 
 export default route(['GET'], async (req, res) => {
   const user = await currentUser(req);

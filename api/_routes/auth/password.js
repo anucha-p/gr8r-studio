@@ -1,8 +1,8 @@
 /* Change (or, for an account created with Google, set) the signed-in user's password.
    POST { current, next } → signs out every other session. */
-import { db } from '../_lib/db.js';
-import { currentUser, hashPassword, verifyPassword } from '../_lib/auth.js';
-import { json, route } from '../_lib/http.js';
+import { db } from '../../_lib/db.js';
+import { currentUser, hashPassword, verifyPassword } from '../../_lib/auth.js';
+import { json, route } from '../../_lib/http.js';
 
 export default route(['POST'], async (req, res, { current, next }) => {
   const user = await currentUser(req);
