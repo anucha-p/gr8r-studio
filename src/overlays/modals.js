@@ -2,8 +2,8 @@
 import { $$, MOD, ago, esc, fmtDate } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { PCOLORS, PICONS } from '../core/constants.js';
-import { D, S, mem, pColor, proj, task, teamsList } from '../core/store.js';
-import { FT, av, filePrev, lbl, prPill, stPill } from '../ui/helpers.js';
+import { D, S, fileTasks, mem, pColor, proj, task, teamsList } from '../core/store.js';
+import { FT, av, fileExt, fileSrc, lbl, linkHost, prPill, stPill } from '../ui/helpers.js';
 import { focusKey, render } from '../shell/render.js';
 import { teamModal } from '../features/teams.js';
 
@@ -53,6 +53,10 @@ export function modalHtml(m) {
       return wrap('', teamModal(m, H));
     case 'filePreview':
       return wrap('lg', filePreviewModal(m, H));
+    case 'attachLink':
+      return wrap('sm', attachLinkModal(m, H));
+    case 'attachFiles':
+      return wrap('', attachFilesModal(m, H));
     case 'saveView':
       return wrap(
         'sm',
@@ -411,11 +415,57 @@ export const SHORTCUTS = [
 export function shortcutsModal(H) {
   return `${H('Keyboard shortcuts')}<div class="modal-b" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px">${SHORTCUTS.map(([g, list]) => `<div><div class="eyebrow" style="margin-bottom:6px">${g}</div>${list.map(([n, k]) => `<div class="row" style="height:30px;font-size:13px;border-bottom:1px solid var(--divider)"><span class="grow">${n}</span>${k.map((x, i) => `${i && k[0] === 'G' ? '<span class="faint" style="font-size:11px">then</span>' : ''}<kbd>${x}</kbd>`).join('')}</div>`).join('')}</div>`).join('')}</div>`;
 }
+const VIDEO = ['mp4', 'webm', 'mov', 'm4v'],
+  AUDIO = ['mp3', 'wav', 'ogg', 'm4a'],
+  TEXT = ['txt', 'md', 'csv', 'json', 'log', 'js', 'ts', 'css', 'py'];
 export function filePreviewModal(m, H) {
   const f = m.file;
   const t = FT[f.type] || FT.other;
+  const src = fileSrc(f);
+  const ext = fileExt(f);
+  const box = 'border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)';
+  let body;
+  if (!src)
+    body = `<div style="${box};padding:28px;text-align:center"><div style="color:${t.c}">${ic(t.i, 30)}</div><p class="muted" style="margin:10px 0 0;font-size:13px">${S.ui.user ? 'This file was added before uploads were stored, so only its name was kept. Upload it again to preview it.' : 'Files added in the local demo only last until the page is reloaded.'}</p></div>`;
+  else if (f.type === 'img')
+    body = `<div style="${box};display:flex;justify-content:center"><img src="${esc(src)}" alt="${esc(f.name)}" style="max-width:100%;max-height:70vh;object-fit:contain;display:block"></div>`;
+  else if (ext === 'pdf' || TEXT.includes(ext))
+    body = `<div style="${box}"><iframe src="${esc(src)}" title="${esc(f.name)}" style="width:100%;height:70vh;border:0;display:block;background:#fff"></iframe></div>`;
+  else if (VIDEO.includes(ext)) body = `<div style="${box}"><video src="${esc(src)}" controls style="width:100%;max-height:70vh;display:block"></video></div>`;
+  else if (AUDIO.includes(ext)) body = `<audio src="${esc(src)}" controls style="width:100%"></audio>`;
+  else
+    body = `<div style="${box};padding:28px;text-align:center"><div style="color:${t.c}">${ic(t.i, 30)}</div><p class="muted" style="margin:10px 0 0;font-size:13px">There's no preview for .${esc(ext)} files. Download it to open it.</p></div>`;
+  const ts = fileTasks(f.id);
+  const dl = src && (f.path ? fileSrc(f, true) : src);
   return `${H(esc(f.name), `${t.n} · ${f.size} · Uploaded by ${esc(mem(f.by)?.name || 'you')} ${ago(f.at)}`)}
-  <div class="modal-b"><div style="border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">${filePrev(f).replace('class="fprev"', 'class="fprev" style="aspect-ratio:16/9"')}</div>
-  ${m.tid ? `<div class="row faint" style="font-size:12.5px">${ic('link', 13)}Attached to <button class="link" data-a="openTask" data-id="${m.tid}">${esc(task(m.tid)?.title)}</button></div>` : ''}</div>
-  <div class="modal-f"><button class="btn btn-secondary" data-a="copyLink" data-fid="${f.id}">${ic('link', 14)}Copy link</button><span class="sp"></span><button class="btn btn-primary" data-a="closeModal">Close</button></div>`;
+  <div class="modal-b">${body}
+  ${ts.length ? `<div class="row faint" style="font-size:12.5px;flex-wrap:wrap;gap:6px">${ic('paperclip', 13)}Attached to ${ts.map(x => `<button class="link" data-a="openTask" data-id="${x.id}">${esc(x.title)}</button>`).join(', ')}</div>` : ''}</div>
+  <div class="modal-f"><button class="btn btn-secondary" data-a="copyLink" data-fid="${f.id}">${ic('link', 14)}Copy link</button>${src ? `<a class="btn btn-secondary" href="${esc(src)}" target="_blank" rel="noopener">${ic('external-link', 14)}Open</a><a class="btn btn-secondary" href="${esc(dl)}" download="${esc(f.name)}">${ic('download', 14)}Download</a>` : ''}<span class="sp"></span><button class="btn btn-primary" data-a="closeModal">Close</button></div>`;
+}
+export function attachLinkModal(m, H) {
+  const err = S.ui.errors.alUrl;
+  return `${H('Add a link', 'Attach a web page, shared document or folder to this task.')}
+  <form class="modal-b" data-submit="submitLink">
+    <div class="field"><label class="label" for="al-url">Link</label><input class="input ${err ? 'is-error' : ''}" id="al-url" type="url" placeholder="https://docs.google.com/…" autofocus>${err ? `<span class="err">${ic('circle-alert', 12)}${err}</span>` : ''}</div>
+    <div class="field"><label class="label" for="al-name">Name <span class="faint">(optional)</span></label><input class="input" id="al-name" placeholder="e.g. Course outline draft"></div>
+  </form>
+  <div class="modal-f"><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="submitLink">Add link</button></div>`;
+}
+/* Pick files already in the task's project; one file can be attached to any number of tasks. */
+export function attachFilesModal(m, H) {
+  const t = task(m.tid);
+  const have = new Set(t.attachments.map(a => a.id));
+  const fs = D().files.filter(f => f.project === t.project && !have.has(f.id));
+  return `${H('Attach from project', `Files and links in ${esc(proj(t.project)?.name || 'this project')}. They stay in one place and can be attached to several tasks.`)}
+  <div class="modal-b" style="gap:4px;max-height:55vh;overflow:auto">${
+    fs.length
+      ? fs
+          .map(
+            f =>
+              `<label class="row" style="gap:10px;padding:7px 4px;cursor:pointer;border-radius:6px"><input type="checkbox" class="check" data-fid="${f.id}"><span class="ftype" style="--c:${(FT[f.type] || FT.other).c}">${ic((FT[f.type] || FT.other).i, 14)}</span><span class="grow trunc">${esc(f.name)}</span><span class="faint" style="font-size:12px">${f.type === 'link' ? esc(linkHost(f.url)) : f.size}${fileTasks(f.id).length ? ` · on ${fileTasks(f.id).length} task${fileTasks(f.id).length > 1 ? 's' : ''}` : ''}</span></label>`,
+          )
+          .join('')
+      : `<p class="muted" style="font-size:13px;margin:6px 0">Every file in this project is already attached to this task. Upload files in the project's Files tab or here with Upload.</p>`
+  }</div>
+  <div class="modal-f"><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button>${fs.length ? '<button class="btn btn-primary" data-a="submitAttachFiles">Attach</button>' : ''}</div>`;
 }

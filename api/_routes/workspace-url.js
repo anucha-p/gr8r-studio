@@ -3,9 +3,9 @@
    POST { url }     → claims it, or 409 if another account has it
    POST { url, auto: true } → keeps the user's current slug if they have one, otherwise claims
                      url or the first free url-2, url-3, … (used on sign-in) */
-import { db } from './_lib/db.js';
-import { currentUser } from './_lib/auth.js';
-import { json, route } from './_lib/http.js';
+import { db } from '../_lib/db.js';
+import { currentUser } from '../_lib/auth.js';
+import { json, route } from '../_lib/http.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 // First path segments the app or Vercel already uses.

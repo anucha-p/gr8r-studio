@@ -1,9 +1,9 @@
 /* The signed-in user's workspace: { data, prefs, views } saved as one JSON document.
    PUT sends the version it was based on; a stale version gets 409 so a second tab
    can't silently overwrite newer edits. */
-import { db } from './_lib/db.js';
-import { currentUser } from './_lib/auth.js';
-import { json, route } from './_lib/http.js';
+import { db } from '../_lib/db.js';
+import { currentUser } from '../_lib/auth.js';
+import { json, route } from '../_lib/http.js';
 
 export default route(['GET', 'PUT'], async (req, res, body) => {
   const user = await currentUser(req);

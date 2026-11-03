@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
-import { setCookie } from '../_lib/auth.js';
-import { STATE_COOKIE, configured, redirect, redirectUri } from '../_lib/google.js';
-import { route } from '../_lib/http.js';
-import { INVITE_COOKIE } from '../_lib/invites.js';
+import { setCookie } from '../../_lib/auth.js';
+import { STATE_COOKIE, configured, redirect, redirectUri } from '../../_lib/google.js';
+import { route } from '../../_lib/http.js';
+import { INVITE_COOKIE } from '../../_lib/invites.js';
 
 export default route(['GET'], async (req, res) => {
   if (!configured()) return redirect(res, '/?auth_error=google_not_configured#login');

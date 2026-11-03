@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash text PRIMARY KEY,
   user_id    text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at timestamptz NOT NULL
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  user_agent text NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id);
 CREATE TABLE IF NOT EXISTS workspaces (

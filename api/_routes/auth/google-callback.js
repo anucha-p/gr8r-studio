@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
-import { db } from '../_lib/db.js';
-import { readCookie, setCookie, startSession } from '../_lib/auth.js';
-import { STATE_COOKIE, configured, redirect, redirectUri } from '../_lib/google.js';
-import { route } from '../_lib/http.js';
-import { INVITE_COOKIE, acceptInvite, findInvite, noUsersYet } from '../_lib/invites.js';
+import { db } from '../../_lib/db.js';
+import { readCookie, setCookie, startSession } from '../../_lib/auth.js';
+import { STATE_COOKIE, configured, redirect, redirectUri } from '../../_lib/google.js';
+import { route } from '../../_lib/http.js';
+import { INVITE_COOKIE, acceptInvite, findInvite, noUsersYet } from '../../_lib/invites.js';
 
 const fail = (res, code) => redirect(res, `/?auth_error=${code}#login`);
 
@@ -53,6 +53,6 @@ export default route(['GET'], async (req, res) => {
     if (invite) await acceptInvite(invite, u.id);
     isNew = true;
   }
-  await startSession(res, u.id, true);
+  await startSession(req, res, u.id, true);
   redirect(res, isNew ? '/?auth=new' : '/');
 });

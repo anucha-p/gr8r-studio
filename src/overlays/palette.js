@@ -157,7 +157,7 @@ export function paletteItems() {
         name: f.name,
         sub: proj(f.project).name,
         r: f.size,
-        run: () => openModal({ type: 'filePreview', file: f, tid: f.task }),
+        run: () => (f.type === 'link' ? window.open(f.url, '_blank', 'noopener') : openModal({ type: 'filePreview', file: f })),
       })),
     });
   if (sc === 'all' || sc === 'comments')

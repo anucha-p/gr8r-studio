@@ -157,6 +157,8 @@ export const canSee = p => !p.private || p.members.includes(D().me);
 export const tasksOf = pid => D().tasks.filter(t => t.project === pid && !t.archived);
 export const allTasks = () => D().tasks.filter(t => !t.archived && canSee(proj(t.project)));
 export const isOver = t => t.due && t.status !== 'done' && diffD(parse(t.due), TODAY) < 0;
+/* Tasks a project file is attached to (a file can be attached to several). */
+export const fileTasks = fid => D().tasks.filter(t => !t.archived && t.attachments.some(a => a.id === fid));
 export const commentsOf = tid => D().comments.filter(c => c.task === tid);
 export function progressOf(pid) {
   const ts = tasksOf(pid);
@@ -186,3 +188,17 @@ export function team(id) {
   return teamsList().find(t => t.id === id) || null;
 }
 export const TM = new Proxy({}, { get: (_, k) => team(k) || NO_TEAM });
+
+/* ---------- account security (signed-in users) ---------- */
+/* Loads the user's real sessions and whether they have a password into S.ui.acct. */
+export async function loadAccount() {
+  if (loadAccount.busy) return;
+  loadAccount.busy = true;
+  try {
+    S.ui.acct = await api('sessions');
+  } catch {
+    S.ui.acct = { error: true, sessions: [], hasPassword: true };
+  } finally {
+    loadAccount.busy = false;
+  }
+}

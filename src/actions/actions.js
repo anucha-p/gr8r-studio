@@ -10,9 +10,11 @@ import {
   DEFAULT_PREFS,
   S,
   STORE_KEY,
+  loadAccount,
   pullRemote,
   allTasks,
   canSee,
+  fileTasks,
   commentsOf,
   logAct,
   me,
@@ -23,7 +25,7 @@ import {
   tasksOf,
   visibleProjects,
 } from '../core/store.js';
-import { fileType, fsize } from '../ui/helpers.js';
+import { fileType, fsize, linkHost } from '../ui/helpers.js';
 import { effectiveDark } from '../core/theme.js';
 import { mutate, toast } from '../ui/toast.js';
 import { ROUTE_NAMES, autosize, focusKey, fxSet, go, render } from '../shell/render.js';
@@ -804,18 +806,33 @@ A.rmAttach = el => {
     t.attachments = t.attachments.filter(a => a.id !== el.dataset.aid);
     logAct('removed a file from', t);
   });
-  toast(`Removed ${f.name}`);
+  // The file stays in the project's files; deleting it there takes it off every task.
+  const inProject = D().files.some(x => x.id === f.id);
+  toast(inProject ? `Removed ${f.name} from this task. It's still in the project's files.` : `Removed ${f.name}`);
+  if (!inProject) purgeFile(f);
 };
 A.filePreview = el => {
   const t = task(el.dataset.tid);
   const f = t.attachments.find(a => a.id === el.dataset.aid);
-  openModal({ type: 'filePreview', file: f, tid: t.id });
+  if (f.type === 'link') return void window.open(f.url, '_blank', 'noopener');
+  openModal({ type: 'filePreview', file: f });
 };
 A.previewFile = el => {
   const f = D().files.find(x => x.id === el.dataset.id);
   S.ui.pop = null;
-  if (f) openModal({ type: 'filePreview', file: f, tid: f.task });
+  if (f?.type === 'link') return void window.open(f.url, '_blank', 'noopener');
+  if (f) openModal({ type: 'filePreview', file: f });
 };
+/* Adds a stored file (or link) to the project's files and, if given, to a task. */
+function addFileRecord(rec, project, tid) {
+  D().files.unshift({ ...rec, project, task: tid || null });
+  if (tid && task(tid)) {
+    task(tid).attachments.push(rec);
+    logAct(rec.type === 'link' ? 'added a link to' : 'added a file to', task(tid), rec.name);
+  }
+}
+/* Uploads: to Vercel Blob for signed-in users (through /api/files-upload), or kept in memory for
+   this browser session in the local demo. Progress shows in the drawer / files view. */
 export function handleFiles(files, ctx) {
   if (!files || !files.length) return;
   if (S.ui.offline) {
@@ -823,33 +840,113 @@ export function handleFiles(files, ctx) {
     return;
   }
   S.ui.uploads = S.ui.uploads || [];
-  [...files].forEach(file => {
+  [...files].forEach(async file => {
     const up = { id: uid('u'), name: file.name, size: fsize(file.size), project: ctx.project, task: ctx.task, pct: 0 };
     S.ui.uploads.push(up);
-    const iv = setInterval(() => {
-      up.pct = Math.min(100, up.pct + 9 + Math.round(Math.random() * 22));
-      const bar = document.getElementById('upbar-' + up.id),
-        pc = document.getElementById('upct-' + up.id);
-      if (bar) bar.style.setProperty('--p', up.pct / 100);
+    render();
+    const progress = pct => {
+      up.pct = Math.round(pct);
+      document.getElementById('upbar-' + up.id)?.style.setProperty('--p', up.pct / 100);
+      const pc = document.getElementById('upct-' + up.id);
       if (pc) pc.textContent = up.pct + '%';
-      if (up.pct >= 100) {
-        clearInterval(iv);
-        S.ui.uploads = S.ui.uploads.filter(x => x !== up);
-        const rec = { id: uid('f'), name: up.name, type: fileType(up.name), size: up.size, by: D().me, at: Date.now() };
-        D().files.unshift({ ...rec, project: up.project, task: up.task || null });
-        if (up.task) {
-          const t = task(up.task);
-          t.attachments.push(rec);
-          logAct('added a file to', t, up.name);
-        }
-        save();
-        render();
-        toast(`Uploaded ${up.name}`);
+    };
+    const rec = {
+      id: uid('f'),
+      name: file.name,
+      type: fileType(file.name),
+      size: up.size,
+      bytes: file.size,
+      mime: file.type || '',
+      by: D().me,
+      at: Date.now(),
+    };
+    try {
+      if (S.ui.user) {
+        const { upload } = await import('@vercel/blob/client');
+        const blob = await upload(`u/${S.ui.user.id}/${file.name}`, file, {
+          access: 'private',
+          handleUploadUrl: '/api/files-upload',
+          multipart: file.size > 20 * 1024 * 1024,
+          onUploadProgress: e => progress(e.percentage),
+        });
+        rec.path = blob.pathname;
+      } else {
+        (S.ui.localFiles ||= {})[rec.id] = URL.createObjectURL(file);
+        progress(100);
       }
-    }, 220);
+      addFileRecord(rec, up.project, up.task);
+      save();
+      toast(`Uploaded ${up.name}`);
+    } catch (e) {
+      const msg = /too large|size/i.test(e.message)
+        ? `${up.name} is larger than 100 MB.`
+        : e.message?.includes('set up')
+          ? e.message
+          : `Couldn't upload ${up.name}. Try again.`;
+      toast(msg, { kind: 'err', ms: 6000 });
+    } finally {
+      S.ui.uploads = S.ui.uploads.filter(x => x !== up);
+      render();
+    }
   });
-  render();
 }
+/* Erases stored contents once no file record points at them (Undo restores the record first). */
+function purgeFile(f, delay = 9000) {
+  if (!f.path || !S.ui.user) return;
+  setTimeout(() => {
+    if (D().files.some(x => x.path === f.path) || D().tasks.some(t => t.attachments.some(a => a.path === f.path))) return;
+    api('files?path=' + encodeURIComponent(f.path), { method: 'DELETE' }).catch(() => {});
+  }, delay);
+}
+
+/* links and existing project files as attachments */
+A.attachLink = el => openModal({ type: 'attachLink', tid: el.dataset.id });
+A.submitLink = () => {
+  const m = S.ui.modals[S.ui.modals.length - 1];
+  let url = $('#al-url').value.trim();
+  const name = $('#al-name').value.trim();
+  if (url && !/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'https://' + url;
+  // Browsers' URL parsers accept odd input (e.g. spaces in the host), so also require a dotted host.
+  let ok = false;
+  try {
+    const u = new URL(url);
+    ok = !/\s/.test(url) && ['http:', 'https:'].includes(u.protocol) && /^[^.%]+(\.[^.%]+)+$/.test(u.hostname);
+  } catch {
+    /* not a URL */
+  }
+  if (!ok) {
+    S.ui.errors.alUrl = 'Enter a web address, like https://example.com/doc';
+    render();
+    $('#al-url').value = url;
+    $('#al-name').value = name;
+    return;
+  }
+  const t = task(m.tid);
+  const rec = { id: uid('f'), name: name || linkHost(url), type: 'link', url, size: '', by: D().me, at: Date.now() };
+  if (!mutate(() => addFileRecord(rec, t.project, t.id))) return;
+  S.ui.errors = {};
+  S.ui.modals.pop();
+  render();
+  toast('Link added');
+};
+A.attachFiles = el => openModal({ type: 'attachFiles', tid: el.dataset.id });
+A.submitAttachFiles = () => {
+  const m = S.ui.modals[S.ui.modals.length - 1];
+  const t = task(m.tid);
+  const ids = $$('.modal input[data-fid]:checked').map(x => x.dataset.fid);
+  if (!ids.length) return toast('Choose at least one file', { kind: 'err' });
+  mutate(() =>
+    ids.forEach(id => {
+      // eslint-disable-next-line no-unused-vars
+      const { project, task: _t, ...rec } = D().files.find(f => f.id === id);
+      t.attachments.push(rec);
+      logAct(rec.type === 'link' ? 'added a link to' : 'added a file to', t, rec.name);
+    }),
+  );
+  S.ui.modals.pop();
+  render();
+  toast(`Attached ${ids.length} file${ids.length > 1 ? 's' : ''}`);
+};
 IN.uploadFiles = el => {
   handleFiles(el.files, { project: el.dataset.project, task: el.dataset.task });
   el.value = '';
@@ -1738,7 +1835,7 @@ A.delFile = el => {
   S.ui.pop = null;
   confirmDlg({
     title: 'Delete file?',
-    body: `<b>${esc(f.name)}</b> will be removed from the project${f.task ? ' and its task' : ''}.`,
+    body: `<b>${esc(f.name)}</b> will be removed from the project${fileTasks(f.id).length ? ` and ${fileTasks(f.id).length === 1 ? 'its task' : `the ${fileTasks(f.id).length} tasks it's attached to`}` : ''}.`,
     ok: 'Delete file',
     danger: true,
     run: () => {
@@ -1746,10 +1843,12 @@ A.delFile = el => {
       if (
         mutate(() => {
           D().files = D().files.filter(x => x !== f);
-          if (f.task && task(f.task)) task(f.task).attachments = task(f.task).attachments.filter(a => a.name !== f.name);
+          D().tasks.forEach(t => (t.attachments = t.attachments.filter(a => a.id !== f.id)));
         })
-      )
+      ) {
         toast(`Deleted ${f.name}`, { action: 'Undo', onAction: () => restore(snap) });
+        purgeFile(f);
+      }
     },
   });
 };
@@ -2081,16 +2180,33 @@ IN.pwStrength = el => {
 };
 A.savePassword = () => {
   const e = (S.ui.errors = {});
-  const cur = $('#pw-cur').value,
+  const cur = $('#pw-cur')?.value || '',
     nw = $('#pw-new').value,
     cf = $('#pw-conf').value;
   S.ui.pwDone = false;
-  if (!cur) e.pwCur = 'Enter your current password';
+  const needCur = !S.ui.user || S.ui.acct?.hasPassword;
+  if (needCur && !cur) e.pwCur = 'Enter your current password';
   if (nw.length < 10 || !/[0-9\W]/.test(nw)) e.pwNew = 'Use at least 10 characters, including a number or symbol';
   if (nw !== cf) e.pwConf = "Passwords don't match";
   if (Object.keys(e).length) {
     render();
     return;
+  }
+  if (S.ui.user) {
+    $('#pw-save')?.classList.add('is-loading');
+    return api('auth/password', { method: 'POST', body: { current: cur, next: nw } })
+      .then(async () => {
+        S.ui.pwDone = true;
+        S.ui.pwNew = '';
+        await loadAccount();
+        render();
+        toast('Password updated');
+      })
+      .catch(err => {
+        S.ui.errors = err.body?.field ? { [err.body.field]: err.message } : {};
+        render();
+        if (!err.body?.field) toast(err.body?.error || "Couldn't update your password. Try again.", { kind: 'err' });
+      });
   }
   loadingBtn('pw-save', 800, () => {
     S.ui.pwDone = true;
@@ -2100,6 +2216,14 @@ A.savePassword = () => {
   });
 };
 A.revokeSession = el => {
+  if (S.ui.user)
+    return api('sessions?id=' + el.dataset.id, { method: 'DELETE' })
+      .then(() => loadAccount())
+      .then(() => {
+        render();
+        toast('Session signed out');
+      })
+      .catch(e => toast(e.body?.error || "Couldn't sign out that session. Try again.", { kind: 'err' }));
   mutate(() => {
     D().sessions = D().sessions.filter(s => s.id !== el.dataset.id);
   });
@@ -2113,6 +2237,14 @@ A.revokeAll = () =>
     danger: true,
     icon: 'log-out',
     run: () => {
+      if (S.ui.user)
+        return api('sessions?others=1', { method: 'DELETE' })
+          .then(() => loadAccount())
+          .then(() => {
+            render();
+            toast('Signed out of other sessions');
+          })
+          .catch(() => toast("Couldn't sign out the other sessions. Try again.", { kind: 'err' }));
       mutate(() => {
         D().sessions = D().sessions.filter(s => s.cur);
       });

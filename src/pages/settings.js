@@ -3,7 +3,8 @@
    ===================================================================== */
 import { SITE, dOff, esc, fmtDate } from '../core/utils.js';
 import { ic, wsLogo } from '../core/icons.js';
-import { D, S, me } from '../core/store.js';
+import { D, S, loadAccount, me } from '../core/store.js';
+import { render } from '../shell/render.js';
 import { av, pIcon } from '../ui/helpers.js';
 import { permsTable, teamsGrid } from './members.js';
 import { page404 } from './errors.js';
@@ -62,6 +63,24 @@ export const SET_NAV = [
     ],
   ],
 ];
+/* Sections that are only mock-ups for now: with real accounts they show "coming soon" instead of
+   controls that would claim to do something they don't. */
+export const SOON = {
+  '2fa': [
+    'shield-check',
+    'Two-factor authentication is coming soon',
+    'Sign-in currently uses your password or Google account. A second step with an authenticator app is planned.',
+  ],
+  'notif-email': ['mail', 'Email notifications are coming soon', "Gr8r Studio can't send email yet. You'll find mentions and assignments in your Inbox."],
+  'notif-push': [
+    'smartphone',
+    'Push notifications are coming soon',
+    "Desktop and mobile notifications aren't available yet. You'll find updates in your Inbox.",
+  ],
+};
+const soonPage = (title, [icon, h, body]) =>
+  `<h1>${title}</h1><div class="panel" style="padding:22px;margin-top:14px;display:flex;gap:14px;align-items:flex-start"><span class="ftype" style="--c:var(--accent);width:38px;height:38px;border-radius:10px">${ic(icon, 18)}</span><div><b>${h}</b><p class="muted" style="margin:6px 0 0;font-size:13px;line-height:1.55">${body}</p></div></div>`;
+const soonTag = k => (S.ui.user && SOON[k] ? '<span class="badge" style="margin-left:auto;font-size:10.5px">Soon</span>' : '');
 export function srow(t, d, ctl) {
   return `<div class="srow"><div><div class="t">${t}</div>${d ? `<div class="d">${d}</div>` : ''}</div><div class="row">${ctl}</div></div>`;
 }
@@ -78,7 +97,12 @@ export function pageSettings() {
   const sec = S.ui.params.sec || S.ui.settings || 'appearance';
   const title = SET_NAV.flatMap(g => g[1]).find(x => x[0] === sec) || ['appearance', 'Appearance'];
   return `<div class="set">
-    <nav class="set-nav" aria-label="Settings">${SET_NAV.map(([g, items]) => `<div class="gh">${g}</div>${items.map(([k, n, i]) => `<button class="sitem ${sec === k ? 'on' : ''}" data-a="go" data-r="settings" data-sec="${k}">${ic(i, 15)}<span>${n}</span></button>`).join('')}`).join('')}</nav>
+    <nav class="set-nav" aria-label="Settings">${SET_NAV.filter(([g]) => !(S.ui.user && g === 'Billing'))
+      .map(
+        ([g, items]) =>
+          `<div class="gh">${g}</div>${items.map(([k, n, i]) => `<button class="sitem ${sec === k ? 'on' : ''}" data-a="go" data-r="settings" data-sec="${k}">${ic(i, 15)}<span>${n}</span>${soonTag(k)}</button>`).join('')}`,
+      )
+      .join('')}</nav>
     <div class="set-body" data-keep="set:${sec}"><div class="set-in">${settingsBody(sec, title[1])}</div></div>
   </div>`;
 }
@@ -87,6 +111,12 @@ export function settingsBody(sec, title) {
   const d = D();
   const np = d.notifPrefs;
   const H = lead => `<h1>${title}</h1><p class="lead">${lead}</p>`;
+  if (S.ui.user && ['plan', 'payment', 'invoices'].includes(sec)) return page404();
+  if (S.ui.user && SOON[sec]) return soonPage(title, SOON[sec]);
+  if (S.ui.user && (sec === 'password' || sec === 'sessions') && !S.ui.acct) {
+    loadAccount().then(render);
+    return H('Loading…');
+  }
   switch (sec) {
     case 'workspace':
       return (
@@ -332,14 +362,32 @@ export function settingsBody(sec, title) {
       const pw = S.ui.pwNew || '';
       return (
         H("Use a long password you don't use anywhere else.") +
-        `${S.ui.pwDone ? `<div class="alert ok" style="margin-bottom:14px">${ic('circle-check', 15)}<span>Password updated. Other sessions stay signed in.</span></div>` : ''}<form data-submit="savePassword" class="col" style="gap:14px;max-width:400px">
-      <div class="field"><label class="label" for="pw-cur">Current password</label><input type="password" class="input ${e.pwCur ? 'is-error' : ''}" id="pw-cur" autocomplete="current-password">${e.pwCur ? `<span class="err">${ic('circle-alert', 12)}${e.pwCur}</span>` : ''}</div>
+        `${S.ui.pwDone ? `<div class="alert ok" style="margin-bottom:14px">${ic('circle-check', 15)}<span>Password updated.${S.ui.user ? ' Your other devices have been signed out.' : ' Other sessions stay signed in.'}</span></div>` : ''}<form data-submit="savePassword" class="col" style="gap:14px;max-width:400px">
+      ${S.ui.user && !S.ui.acct.hasPassword ? `<div class="alert info">${ic('info', 14)}<span>Your account uses Google sign-in. Set a password to also sign in with your email.</span></div>` : `<div class="field"><label class="label" for="pw-cur">Current password</label><input type="password" class="input ${e.pwCur ? 'is-error' : ''}" id="pw-cur" autocomplete="current-password">${e.pwCur ? `<span class="err">${ic('circle-alert', 12)}${e.pwCur}</span>` : ''}</div>`}
+
       <div class="field"><label class="label" for="pw-new">New password</label><input type="password" class="input ${e.pwNew ? 'is-error' : ''}" id="pw-new" data-in="pwStrength" value="${esc(pw)}" autocomplete="new-password">${strengthMeter(pw)}${e.pwNew ? `<span class="err">${ic('circle-alert', 12)}${e.pwNew}</span>` : '<span class="hint">At least 10 characters with a number or symbol.</span>'}</div>
       <div class="field"><label class="label" for="pw-conf">Confirm new password</label><input type="password" class="input ${e.pwConf ? 'is-error' : ''}" id="pw-conf" autocomplete="new-password">${e.pwConf ? `<span class="err">${ic('circle-alert', 12)}${e.pwConf}</span>` : ''}</div>
       <div><button class="btn btn-primary" data-a="savePassword" id="pw-save">Update password</button></div></form>`
       );
     }
     case 'sessions':
+      if (S.ui.user) {
+        const ss = S.ui.acct.sessions;
+        return (
+          H('Browsers and devices signed in to your account. Sign out any you don’t recognise.') +
+          (S.ui.acct.error ? `<div class="alert danger">${ic('circle-alert', 14)}<span>Couldn't load your sessions. Reload to try again.</span></div>` : '') +
+          ss
+            .map(s =>
+              srow(
+                `<span class="row" style="gap:8px">${ic(s.mobile ? 'smartphone' : 'monitor', 15)}${esc(s.device)}${s.current ? '<span class="badge green">This device</span>' : ''}</span>`,
+                `Signed in ${fmtDate(s.created_at.slice(0, 10))} · expires ${fmtDate(s.expires_at.slice(0, 10))}`,
+                s.current ? '' : `<button class="btn btn-secondary btn-sm" data-a="revokeSession" data-id="${s.id}">Sign out</button>`,
+              ),
+            )
+            .join('') +
+          `<div style="margin-top:16px"><button class="btn btn-danger-ghost" data-a="revokeAll" ${ss.length > 1 ? '' : 'disabled'}>Sign out of all other sessions</button></div>`
+        );
+      }
       return (
         H('Devices currently signed in to your account.') +
         d.sessions
