@@ -57,6 +57,8 @@ export function modalHtml(m) {
       return wrap('sm', attachLinkModal(m, H));
     case 'attachFiles':
       return wrap('', attachFilesModal(m, H));
+    case 'milestone':
+      return wrap('sm', milestoneModal(m, H));
     case 'saveView':
       return wrap(
         'sm',
@@ -439,6 +441,16 @@ export function filePreviewModal(m, H) {
   <div class="modal-b">${body}
   ${ts.length ? `<div class="row faint" style="font-size:12.5px;flex-wrap:wrap;gap:6px">${ic('paperclip', 13)}Attached to ${ts.map(x => `<button class="link" data-a="openTask" data-id="${x.id}">${esc(x.title)}</button>`).join(', ')}</div>` : ''}</div>
   <div class="modal-f"><button class="btn btn-secondary" data-a="copyLink" data-fid="${f.id}">${ic('link', 14)}Copy link</button>${src ? `<a class="btn btn-secondary" href="${esc(src)}" target="_blank" rel="noopener">${ic('external-link', 14)}Open</a><a class="btn btn-secondary" href="${esc(dl)}" download="${esc(f.name)}">${ic('download', 14)}Download</a>` : ''}<span class="sp"></span><button class="btn btn-primary" data-a="closeModal">Close</button></div>`;
+}
+export function milestoneModal(m, H) {
+  const ms = m.i != null ? proj(m.pid)?.milestones?.[m.i] : null;
+  const e = S.ui.errors;
+  return `${H(ms ? 'Edit milestone' : 'Add milestone', 'A key date in the project. It shows on the Overview and the Timeline.')}
+  <form class="modal-b" data-submit="saveMilestone">
+    <div class="field"><label class="label" for="ms-name">Name</label><input class="input ${e.msName ? 'is-error' : ''}" id="ms-name" value="${esc(ms?.name || '')}" placeholder="e.g. Self-assessment report submitted" autofocus>${e.msName ? `<span class="err">${ic('circle-alert', 12)}${e.msName}</span>` : ''}</div>
+    <div class="field"><label class="label" for="ms-date">Date</label><input class="input ${e.msDate ? 'is-error' : ''}" id="ms-date" type="date" value="${esc(ms?.date || '')}">${e.msDate ? `<span class="err">${ic('circle-alert', 12)}${e.msDate}</span>` : ''}</div>
+  </form>
+  <div class="modal-f"><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="saveMilestone">${ms ? 'Save' : 'Add milestone'}</button></div>`;
 }
 export function attachLinkModal(m, H) {
   const err = S.ui.errors.alUrl;

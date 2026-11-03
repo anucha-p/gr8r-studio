@@ -816,6 +816,68 @@ function addFileRecord(rec, project, tid) {
     logAct(rec.type === 'link' ? 'added a link to' : 'added a file to', task(tid), rec.name);
   }
 }
+/* milestones: { name, date } on the project, kept in date order */
+A.addMilestone = el => {
+  S.ui.errors = {};
+  openModal({ type: 'milestone', pid: el.dataset.id });
+};
+A.editMilestone = el => {
+  S.ui.errors = {};
+  openModal({ type: 'milestone', pid: el.dataset.id, i: +el.dataset.i });
+};
+A.saveMilestone = () => {
+  const m = S.ui.modals[S.ui.modals.length - 1];
+  const p = proj(m.pid);
+  const name = $('#ms-name').value.trim(),
+    date = $('#ms-date').value;
+  S.ui.errors = {};
+  if (!name) S.ui.errors.msName = 'Give the milestone a name';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) S.ui.errors.msDate = 'Choose a date';
+  if (S.ui.errors.msName || S.ui.errors.msDate) {
+    render();
+    $('#ms-name').value = name;
+    $('#ms-date').value = date;
+    return;
+  }
+  const editing = m.i != null;
+  if (
+    !mutate(() => {
+      p.milestones ||= [];
+      if (editing) p.milestones[m.i] = { ...p.milestones[m.i], name, date };
+      else p.milestones.push({ name, date });
+      p.milestones.sort((a, b) => a.date.localeCompare(b.date));
+      D().activity.unshift({
+        id: uid('a'),
+        by: D().me,
+        verb: editing ? 'updated milestone' : 'added milestone',
+        task: null,
+        project: p.id,
+        at: Date.now(),
+        extra: name,
+      });
+    })
+  )
+    return;
+  S.ui.modals.pop();
+  render();
+  toast(editing ? 'Milestone updated' : `Added milestone “${name}”`);
+};
+A.delMilestone = el => {
+  const p = proj(el.dataset.id);
+  const i = +el.dataset.i;
+  const ms = p.milestones[i];
+  confirmDlg({
+    title: 'Delete milestone?',
+    body: `<b>${esc(ms.name)}</b> (${fmtDate(ms.date)}) will be removed from this project.`,
+    ok: 'Delete milestone',
+    danger: true,
+    run: () => {
+      const snap = snapshot();
+      if (mutate(() => p.milestones.splice(i, 1))) toast(`Deleted ${ms.name}`, { action: 'Undo', onAction: () => restore(snap) });
+    },
+  });
+};
+
 /* links and existing project files as attachments */
 /* Links live in the project (its Links tab) and can be on any number of its tasks. */
 A.attachLink = el => openModal({ type: 'attachLink', tid: el.dataset.id || null, project: el.dataset.project || task(el.dataset.id)?.project });

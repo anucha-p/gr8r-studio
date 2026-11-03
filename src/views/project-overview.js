@@ -41,13 +41,14 @@ export function projOverview(p) {
           <dt>${ic('flag', 14)}Due</dt><dd><span class="pillbtn num">${fmtDate(p.due, true)}</span></dd>
           <dt>${ic('user-plus', 14)}Members</dt><dd><button class="pillbtn" data-a="share" data-id="${p.id}">${avStack(p.members, 6)}<span class="faint">${p.members.length}</span></button></dd>
         </dl></div></section>
-        <section class="panel"><div class="panel-h"><h2>Milestones</h2></div><div class="panel-b">${
+        <section class="panel"><div class="panel-h"><h2>Milestones</h2><div class="acts"><button class="btn btn-sm btn-ghost" data-a="addMilestone" data-id="${p.id}">${ic('plus', 13)}Add</button></div></div><div class="panel-b">${
           (p.milestones || [])
-            .map(m => {
+            .map((m, i) => {
               const n = diffD(parse(m.date), TODAY);
-              return `<div class="row" style="height:32px;font-size:13px"><span style="width:9px;height:9px;transform:rotate(45deg);border-radius:2px;flex-shrink:0;margin:0 3px;background:${n < 0 ? 'var(--green)' : pColor(p)}"></span><span class="grow trunc ${n < 0 ? 'faint' : ''}">${esc(m.name)}</span><span class="num muted">${fmtDate(m.date)}</span></div>`;
+              return `<div class="row ms-row" style="height:32px;font-size:13px"><span style="width:9px;height:9px;transform:rotate(45deg);border-radius:2px;flex-shrink:0;margin:0 3px;background:${n < 0 ? 'var(--green)' : pColor(p)}"></span><span class="grow trunc ${n < 0 ? 'faint' : ''}">${esc(m.name)}</span><span class="num muted">${fmtDate(m.date)}</span><button class="ibtn ibtn-xs" data-a="editMilestone" data-id="${p.id}" data-i="${i}" aria-label="Edit milestone ${esc(m.name)}" data-tip="Edit">${ic('pencil', 12)}</button><button class="ibtn ibtn-xs" data-a="delMilestone" data-id="${p.id}" data-i="${i}" aria-label="Delete milestone ${esc(m.name)}" data-tip="Delete">${ic('trash-2', 12)}</button></div>`;
             })
-            .join('') || '<span class="faint">No milestones yet</span>'
+            .join('') ||
+          `<button class="link" data-a="addMilestone" data-id="${p.id}" style="font-size:13px">Add the key dates for this project, like a report deadline or a site visit</button>`
         }</div></section>
         <section class="panel"><div class="panel-h"><h2>Recent activity</h2><div class="acts"><button class="btn btn-sm btn-ghost" data-a="go" data-r="project" data-id="${p.id}" data-tab="activity">View all</button></div></div><div class="panel-b feed">${acts.map(a => actHtml(a)).join('') || '<span class="faint">No activity yet</span>'}</div></section>
       </div>
