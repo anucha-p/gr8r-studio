@@ -10,7 +10,7 @@ UI framework and no runtime dependency.
 
 ## Getting started
 
-Requires Node.js 18 or newer (`.nvmrc` pins 22).
+Requires Node.js 22 (`.nvmrc`; `engines` pins `22.x` so Vercel never upgrades the major version on its own).
 
 ```bash
 npm install
