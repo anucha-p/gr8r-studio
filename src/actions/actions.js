@@ -1,9 +1,9 @@
 /* =====================================================================
    ACTIONS · INPUT HANDLERS · DRAG & DROP · KEYBOARD · INIT
    ===================================================================== */
-import { $, $$, TODAY, addD, dOff, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
+import { $, $$, TODAY, addD, dOff, diffD, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
 import { PR, PSTAT, ST } from '../core/constants.js';
-import { seed } from '../data/seed.js';
+import { blankWorkspace, hasSample, seed, stripSample } from '../data/seed.js';
 import { api } from '../core/api.js';
 import {
   D,
@@ -28,7 +28,7 @@ import { effectiveDark } from '../core/theme.js';
 import { mutate, toast } from '../ui/toast.js';
 import { autosize, focusKey, fxSet, go, render } from '../shell/render.js';
 import { viewOf } from '../shell/view-engine.js';
-import { TEMPLATES, closeModal, openModal } from '../overlays/modals.js';
+import { allTemplates, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
 import { strengthMeter } from '../pages/settings.js';
 
@@ -1251,7 +1251,7 @@ IN.pform = el => {
 A.pformSet = el => {
   S.ui.pform[el.dataset.f] = el.dataset.v;
   if (el.dataset.f === 'tmpl') {
-    const t = TEMPLATES.find(x => x.id === el.dataset.v);
+    const t = allTemplates().find(x => x.id === el.dataset.v);
     if (t && S.ui.pform.icon === 'folder') S.ui.pform.icon = t.icon === 'file' ? 'folder' : t.icon;
   }
   render();
@@ -1294,20 +1294,72 @@ export function createProject(f, tmplId) {
   D().projects.push(p);
   D().projOrder.unshift(p.id);
   D().activity.unshift({ id: uid('a'), by: D().me, verb: 'created project', task: null, project: p.id, at: Date.now(), extra: '' });
-  const tm = TEMPLATES.find(t => t.id === tmplId);
-  (tm?.tasks || []).forEach((title, i) =>
+  const tm = allTemplates().find(t => t.id === tmplId);
+  // Built-in templates list task titles; saved templates keep each task's details and its
+  // start/due as days from the project start.
+  (tm?.tasks || []).forEach((x, i) => {
+    const o = typeof x === 'string' ? { title: x } : x;
     createTask({
       project: p.id,
-      title,
-      status: i === 0 ? 'todo' : 'backlog',
-      assignee: i === 0 ? D().me : null,
-      priority: i === 0 ? 'high' : 'medium',
-      due: dOff(5 + i * 5),
-      start: dOff(i * 5),
-    }),
-  );
+      title: o.title,
+      desc: o.desc || '',
+      labels: [...(o.labels || [])],
+      subtasks: (o.subtasks || []).map(title => ({ id: uid('s'), title, done: false })),
+      status: o.status || (i === 0 ? 'todo' : 'backlog'),
+      assignee: i === 0 && typeof x === 'string' ? D().me : null,
+      priority: o.priority || (i === 0 ? 'high' : 'medium'),
+      due: o.dueOff != null ? dOff(o.dueOff) : typeof x === 'string' ? dOff(5 + i * 5) : null,
+      start: o.startOff != null ? dOff(o.startOff) : typeof x === 'string' ? dOff(i * 5) : null,
+    });
+  });
   return p;
 }
+A.saveAsTemplate = el => {
+  const p = proj(el.dataset.id);
+  S.ui.pop = null;
+  openModal({
+    type: 'prompt',
+    title: 'Save as template',
+    label: 'Template name',
+    value: p.name,
+    ok: 'Save template',
+    run: name => {
+      if (!name) return toast('Give the template a name', { kind: 'err' });
+      const base = p.start ? parse(p.start) : TODAY;
+      const off = d => (d ? diffD(parse(d), base) : null);
+      const ts = tasksOf(p.id).sort((a, b) => a.order - b.order);
+      mutate(() => {
+        (D().templates ||= []).push({
+          id: uid('tpl'),
+          custom: true,
+          name,
+          icon: p.icon || 'folder',
+          desc: p.desc && p.desc !== 'No description yet.' ? p.desc.slice(0, 60) : 'Saved from ' + p.name,
+          tasks: ts.map(t => ({
+            title: t.title,
+            desc: t.desc,
+            priority: t.priority,
+            labels: t.labels,
+            subtasks: (t.subtasks || []).map(s => s.title),
+            status: t.status === 'backlog' ? 'backlog' : 'todo',
+            startOff: off(t.start),
+            dueOff: off(t.due),
+          })),
+        });
+      });
+      toast(`Saved “${name}” as a template with ${ts.length} task${ts.length === 1 ? '' : 's'}`);
+    },
+  });
+};
+A.delTemplate = el => {
+  const t = (D().templates || []).find(x => x.id === el.dataset.id);
+  if (!t) return;
+  mutate(() => {
+    D().templates = D().templates.filter(x => x !== t);
+    if (S.ui.pform?.tmpl === t.id) S.ui.pform.tmpl = 'blank';
+  });
+  toast(`Deleted template “${t.name}”`);
+};
 A.submitProject = () => {
   const m = S.ui.modals[S.ui.modals.length - 1];
   const f = S.ui.pform;
@@ -1947,6 +1999,13 @@ A.delWorkspace = () =>
     danger: true,
     typeName: D().ws.name,
     run: () => {
+      if (S.ui.user) {
+        S.data = blankWorkspace(S.ui.user);
+        S.views = {};
+        save();
+        go('home');
+        return toast('Workspace deleted. You have a fresh, empty workspace.');
+      }
       S.data = seed();
       S.views = {};
       save();
@@ -2147,9 +2206,35 @@ async function authRequest(btnId, path, body, onOk) {
 }
 export async function signedIn(user, fresh) {
   S.ui.user = user;
-  if (fresh) S.prefs.name = user.name;
   await pullRemote(fresh);
+  if (hasSample(D()))
+    setTimeout(
+      () =>
+        toast('Your workspace still has the sample projects and people.', { kind: 'info', ms: 10000, action: 'Remove sample data', onAction: A.removeSample }),
+      600,
+    );
 }
+A.removeSample = () => {
+  S.ui.pop = null;
+  confirmDlg({
+    title: 'Remove sample data?',
+    body: 'The sample projects (with their tasks, files and comments), sample people and demo history are deleted. Projects you created stay, but tasks you added inside a sample project go with it.',
+    ok: 'Remove sample data',
+    danger: true,
+    icon: 'trash-2',
+    run: () => {
+      mutate(() => {
+        S.data = stripSample(D(), S.ui.user || { name: S.prefs.name, email: me()?.email || '' });
+        if (S.prefs.name === DEFAULT_PREFS.name && S.ui.user) S.prefs.name = S.ui.user.name;
+        if (S.prefs.title === DEFAULT_PREFS.title) S.prefs.title = '';
+        S.views = {};
+        S.ui.drawer = null;
+      });
+      go('home');
+      toast('Sample data removed');
+    },
+  });
+};
 A.socialAuth = el => {
   if (S.ui.backend && el.dataset.v === 'Google') {
     el.classList.add('is-loading');
@@ -2246,8 +2331,14 @@ A.doReset = () => {
 /* onboarding */
 A.onbSet = el => {
   S.ui.onbData[el.dataset.k] = el.dataset.v;
+  const useTmpl = { product: 'product', design: 'design', marketing: 'mkt', engineering: 'software', education: 'edu-dev', events: 'event' }[el.dataset.v];
+  if (el.dataset.k === 'use' && useTmpl && !S.ui.onbData.tmplTouched) {
+    S.ui.onbData.tmpl = useTmpl;
+    if (!S.ui.onbData.projTouched) S.ui.onbData.proj = allTemplates().find(x => x.id === useTmpl).name;
+  }
   if (el.dataset.k === 'tmpl') {
-    const t = TEMPLATES.find(x => x.id === el.dataset.v);
+    S.ui.onbData.tmplTouched = true;
+    const t = allTemplates().find(x => x.id === el.dataset.v);
     if (t && !S.ui.onbData.projTouched) S.ui.onbData.proj = t.name === 'Website' ? 'Website Launch' : t.name;
   }
   render();
@@ -2320,7 +2411,7 @@ A.onbFinish = () => {
       if (!D().workspaces.some(w => w.name === D().ws.name)) D().workspaces.push({ id: uid('w'), name: D().ws.name, c, plan: 'Free' });
     }
     S.prefs.defaultTab = { kanban: 'board', list: 'list', timeline: 'timeline', table: 'table' }[o.team] || 'board';
-    const tm = TEMPLATES.find(t => t.id === o.tmpl) || TEMPLATES[2];
+    const tm = allTemplates().find(t => t.id === o.tmpl) || allTemplates()[2];
     p = createProject(
       {
         name: o.proj.trim() || tm.name,

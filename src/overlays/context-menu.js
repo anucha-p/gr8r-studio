@@ -38,6 +38,7 @@ export function ctxMenu(p) {
       I('share', 'share-2', 'Share') +
       I('copyLink', 'link', 'Copy link') +
       I('dupProject', 'copy', 'Duplicate') +
+      I('saveAsTemplate', 'layout-template', 'Save as template') +
       sep +
       (visibleProjects().indexOf(pr) > 0 ? I('projUp', 'arrow-up', 'Move up in sidebar') : '') +
       (visibleProjects().indexOf(pr) < visibleProjects().length - 1 ? I('projDown', 'arrow-down', 'Move down in sidebar') : '') +

@@ -542,3 +542,71 @@ export function seed() {
     },
   };
 }
+
+/* ---------- real accounts ---------- */
+const SAMPLE = seed();
+const sampleIds = key => new Set(SAMPLE[key].map(x => x.id));
+
+/* An empty workspace whose only member is the signed-in user. */
+export function blankWorkspace(user) {
+  const s = seed();
+  const first = (user.name || '').split(' ')[0] || 'My';
+  return {
+    ...s,
+    ws: { name: `${first}'s workspace`, url: 'workspace', c: '#5A67D8' },
+    workspaces: [{ id: 'w1', name: `${first}'s workspace`, c: '#5A67D8', plan: 'Free' }],
+    members: [{ ...s.members[0], name: user.name, email: user.email, role: 'Owner', title: '', last: 0, tz: '—' }],
+    projects: [],
+    tasks: [],
+    comments: [],
+    activity: [],
+    notifs: [],
+    files: [],
+    events: [],
+    projOrder: [],
+    savedViews: [],
+    recentSearches: [],
+    sessions: [],
+    invoices: [],
+  };
+}
+
+/* True while the workspace still holds any of the sample projects, tasks or people. */
+export function hasSample(d) {
+  const p = sampleIds('projects'),
+    m = sampleIds('members');
+  return d.projects.some(x => p.has(x.id)) || d.members.some(x => x.id !== d.me && m.has(x.id) && x.email === SAMPLE.members.find(s => s.id === x.id).email);
+}
+
+/* Removes the sample projects (with their tasks, files, comments, events), sample people and
+   demo history; keeps the user's own projects and settings. */
+export function stripSample(d, user) {
+  const p = sampleIds('projects'),
+    t = sampleIds('tasks'),
+    m = sampleIds('members');
+  const goneTask = new Set(d.tasks.filter(x => t.has(x.id) || p.has(x.project)).map(x => x.id));
+  const isSampleMember = x => x.id !== d.me && m.has(x.id) && x.email === SAMPLE.members.find(s => s.id === x.id).email;
+  const goneMember = new Set(d.members.filter(isSampleMember).map(x => x.id));
+  const keepRef = x => !p.has(x.project) && !goneTask.has(x.task) && !goneMember.has(x.by);
+  const blank = blankWorkspace(user);
+  return {
+    ...d,
+    ws: d.ws.brand ? blank.ws : d.ws,
+    workspaces: d.workspaces.filter(w => !SAMPLE.workspaces.some(s => s.name === w.name)).concat(d.ws.brand ? blank.workspaces : []),
+    members: d.members.filter(x => !goneMember.has(x.id)).map(x => (x.id === d.me && x.email === SAMPLE.members[0].email ? { ...x, ...blank.members[0] } : x)),
+    projects: d.projects
+      .filter(x => !p.has(x.id))
+      .map(x => ({ ...x, members: (x.members || []).filter(id => !goneMember.has(id)), lead: goneMember.has(x.lead) ? d.me : x.lead })),
+    projOrder: d.projOrder.filter(id => !p.has(id)),
+    tasks: d.tasks.filter(x => !goneTask.has(x.id)).map(x => (goneMember.has(x.assignee) ? { ...x, assignee: null } : x)),
+    comments: d.comments.filter(x => !goneTask.has(x.task) && !goneMember.has(x.by)),
+    activity: d.activity.filter(keepRef),
+    notifs: d.notifs.filter(x => !sampleIds('notifs').has(x.id) && keepRef(x)),
+    files: d.files.filter(x => !sampleIds('files').has(x.id) && keepRef(x)),
+    events: d.events.filter(x => !sampleIds('events').has(x.id) && !p.has(x.project)),
+    savedViews: d.savedViews.filter(x => !p.has(x.project)),
+    recentSearches: d.recentSearches.filter(q => !SAMPLE.recentSearches.includes(q)),
+    sessions: d.sessions.filter(x => !sampleIds('sessions').has(x.id)),
+    invoices: d.invoices.filter(x => !sampleIds('invoices').has(x.id)),
+  };
+}
