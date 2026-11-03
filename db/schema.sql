@@ -25,3 +25,13 @@ CREATE TABLE IF NOT EXISTS workspace_urls (
   slug    text PRIMARY KEY,
   user_id text NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE
 );
+-- Sign-up is invite-only: an account can only be created with an unused, unexpired invite link.
+CREATE TABLE IF NOT EXISTS invites (
+  token_hash  text PRIMARY KEY,
+  email       text NOT NULL,
+  invited_by  text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  expires_at  timestamptz NOT NULL,
+  accepted_by text REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS invites_email_idx ON invites(email);

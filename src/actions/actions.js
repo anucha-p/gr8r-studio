@@ -1618,15 +1618,40 @@ A.submitInvite = () => {
     S.ui.modals.pop();
     S.ui.errors = {};
     render();
-    toast(`${list.length} invitation${list.length > 1 ? 's' : ''} sent`);
+    if (!S.ui.user) return toast(`${list.length} invitation${list.length > 1 ? 's' : ''} sent`);
+    createInvites(list).then(links => openModal({ type: 'inviteLinks', links }));
   });
 };
-A.copyInviteLink = () => copy(`${location.origin}/join/${D().ws.url}-7f3k2`, 'Invite link copied');
+A.copyInviteLink = () =>
+  (S.ui.user ? toast('Invite links are personal: enter an email address and choose Create invite links.', { kind: 'info' }) : null) ||
+  copy(`${location.origin}/join/${D().ws.url}-7f3k2`, 'Invite link copied');
 A.resendInvite = el => {
   S.ui.pop = null;
   render();
+  if (S.ui.user) return copyNewInvite(mem(el.dataset.id).email);
   toast(`Invite resent to ${mem(el.dataset.id).email}`);
 };
+/* ---------- invite links (signed-in users) ----------
+   Sign-up is invite-only. There is no email service yet, so an invite is a private, single-use
+   link the inviter sends themselves; making a new link for an address cancels the old one. */
+export const inviteLink = token => `${location.origin}/?invite=${token}`;
+export async function createInvites(emails) {
+  const out = [];
+  for (const email of emails) {
+    try {
+      const r = await api('invites', { method: 'POST', body: { email } });
+      out.push({ email: r.email, link: inviteLink(r.token) });
+    } catch (e) {
+      out.push({ email, error: e.body?.error || "Couldn't create the invite. Try again." });
+    }
+  }
+  return out;
+}
+async function copyNewInvite(email) {
+  const [r] = await createInvites([email]);
+  if (r.error) return toast(r.error, { kind: 'err' });
+  copy(r.link, `New invite link for ${email} copied. Earlier links for this address no longer work.`);
+}
 A.viewProfile = el => go('member', { id: el.dataset.id });
 A.assignToMember = el => {
   S.ui.pop = null;
@@ -1653,6 +1678,7 @@ A.removeMember = el => {
           D().projects.forEach(p => (p.members = p.members.filter(x => x !== m.id)));
         })
       ) {
+        if (S.ui.user && m.status === 'invited') api('invites?email=' + encodeURIComponent(m.email), { method: 'DELETE' }).catch(() => {});
         if (S.ui.route === 'member') go('members');
         toast(`Removed ${m.name}`, { action: 'Undo', onAction: () => restore(snap) });
       }
@@ -2302,7 +2328,7 @@ A.removeSample = () => {
 A.socialAuth = el => {
   if (S.ui.backend && el.dataset.v === 'Google') {
     el.classList.add('is-loading');
-    return location.assign('/api/auth/google');
+    return location.assign('/api/auth/google' + (S.ui.invite?.token ? '?invite=' + encodeURIComponent(S.ui.invite.token) : ''));
   }
   if (S.ui.backend) return toast(`${el.dataset.v} sign-in isn't set up yet. Use your email and password.`, { kind: 'info' });
   el.classList.add('is-loading');
@@ -2324,7 +2350,7 @@ A.doSignup = () => {
     return;
   }
   if (S.ui.backend)
-    return authRequest('signup-btn', 'auth/signup', { name: nm, email: em, password: pw }, async r => {
+    return authRequest('signup-btn', 'auth/signup', { name: nm, email: em, password: pw, invite: S.ui.invite?.token }, async r => {
       await signedIn(r.user, true);
       A.verified();
     });
@@ -2522,6 +2548,8 @@ A.onbFinish = () => {
   S.ui.auth = null;
   go('project', { id: p.id, tab: S.prefs.defaultTab });
   toast(`Welcome to ${D().ws.name}`);
+  const invited = (o.invites || '').split(',').filter(x => EMAIL_RE.test(x));
+  if (S.ui.user && invited.length) createInvites(invited).then(links => openModal({ type: 'inviteLinks', links }));
   if (S.ui.user && o.url)
     setWorkspaceUrl(o.url).then(err => {
       if (err) return toast(`${err} Your address is ${SITE()}/${D().ws.url} — change it in Settings.`, { kind: 'err', ms: 8000 });

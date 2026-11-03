@@ -84,6 +84,8 @@ const AUTH_ERRORS = {
   google_cancelled: 'Google sign-in was cancelled.',
   google_unverified: "Your Google account email isn't verified.",
   google_failed: "We couldn't sign you in with Google. Try again.",
+  invite_required: 'Gr8r Studio is invite-only. Ask a member for an invite link, then use it to sign up.',
+  invite_email_mismatch: 'That Google account’s email doesn’t match your invite. Use the Google account for the invited address.',
 };
 
 (async function init() {
@@ -91,7 +93,8 @@ const AUTH_ERRORS = {
   const qs = new URLSearchParams(location.search);
   const authNew = qs.get('auth') === 'new',
     authErr = AUTH_ERRORS[qs.get('auth_error')];
-  if (qs.has('auth') || qs.has('auth_error')) history.replaceState(null, '', location.pathname + location.hash);
+  const inviteToken = qs.get('invite');
+  if (qs.has('auth') || qs.has('auth_error') || inviteToken) history.replaceState(null, '', location.pathname + location.hash);
   document.documentElement.lang = 'en';
   if (!document.getElementById('sr-live')) {
     const l = document.createElement('div');
@@ -103,7 +106,14 @@ const AUTH_ERRORS = {
   const h = (location.hash || '').slice(1);
   const authRoutes = ['login', 'signup', 'forgot', 'reset', 'verify', 'onboarding'];
   const signedInNow = await connect(authNew);
-  if (S.ui.backend && !signedInNow) S.ui.auth = ['login', 'signup'].includes(h) ? h : 'login';
+  if (S.ui.backend && !signedInNow && inviteToken) {
+    // Invite link: /?invite=<token> opens sign-up with the invited address filled in.
+    S.ui.invite = await api('invites?token=' + encodeURIComponent(inviteToken))
+      .then(r => ({ token: inviteToken, email: r.email }))
+      .catch(e => ({ error: e.body?.error || "Couldn't check this invite link. Try again." }));
+  } else if (signedInNow && inviteToken) setTimeout(() => toast('You already have an account, so this invite link isn’t needed.', { kind: 'info' }), 400);
+  if (S.ui.invite) S.ui.auth = 'signup';
+  else if (S.ui.backend && !signedInNow) S.ui.auth = ['login', 'signup'].includes(h) ? h : 'login';
   else if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
   else if (!openPath(location.pathname)) S.ui.route = S.prefs.home || 'home';

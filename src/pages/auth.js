@@ -36,13 +36,14 @@ export function renderAuth() {
     <p class="auth-foot">Don't have an account? <button type="button" class="link" data-a="auth" data-v="signup">Sign up</button></p></form>`,
       `<button class="btn btn-ghost btn-sm" data-a="auth" data-v="signup">Sign up</button>`,
     );
+  if (s === 'signup' && S.ui.backend && !S.ui.invite?.email) return inviteOnly();
   if (s === 'signup')
     return authShell(
       `<form class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}" data-submit="doSignup" novalidate>
     <div style="display:flex;justify-content:center">${LOGO(30)}</div><h1>Create your account</h1><p class="sub">Free for up to 3 members. No credit card required.</p>
     ${socialBtns()}<div class="or">or sign up with email</div>
     <div class="field"><label class="label" for="s-name">Full name</label><input class="input input-lg ${icls('name')}" id="s-name" value="${esc(f.name)}" autocomplete="name" placeholder="Tanjim Islam">${ferr('name')}</div>
-    <div class="field"><label class="label" for="s-email">Work email</label><input class="input input-lg ${icls('email')}" id="s-email" type="email" value="" autocomplete="email" placeholder="you@company.com">${ferr('email')}</div>
+    <div class="field"><label class="label" for="s-email">Work email</label><input class="input input-lg ${icls('email')}" id="s-email" type="email" value="${esc(S.ui.invite?.email || '')}" ${S.ui.invite?.email ? 'readonly' : ''} autocomplete="email" placeholder="you@company.com">${ferr('email')}</div>
     <div class="field"><label class="label" for="s-pw">Password</label><input class="input input-lg ${icls('pw')}" id="s-pw" type="password" data-in="pwStrength" value="${esc(S.ui.pwNew || '')}" autocomplete="new-password">${strengthMeter(S.ui.pwNew || '')}${ferr('pw') || '<span class="hint">At least 10 characters with a number or symbol.</span>'}</div>
     <button class="btn btn-primary btn-lg btn-block" data-a="doSignup" id="signup-btn">Create account</button>
     <p class="hint" style="text-align:center">By creating an account you agree to the Terms and Privacy Policy.</p>
@@ -75,6 +76,18 @@ export function renderAuth() {
     <button class="btn btn-secondary btn-lg btn-block" data-a="resend" data-v="verify" id="resend-btn" ${S.ui.resendT > 0 ? 'disabled' : ''}>${S.ui.resendT > 0 ? `Resend email in <span class="num" id="resend-t">${S.ui.resendT}</span>s` : 'Resend email'}</button>
     <p class="auth-foot">Wrong email? <button class="link" data-a="auth" data-v="signup">Change it</button></p></div>`);
   return '';
+}
+
+/* Sign-up without a valid invite link (the backend is invite-only). */
+function inviteOnly() {
+  const bad = S.ui.invite?.error;
+  return authShell(
+    `<div class="auth-card${S.ui.fx.auth ? ' fx-auth' : ''}"><div style="display:flex;justify-content:center"><span class="ftype" style="--c:var(--${bad ? 'red' : 'accent'});width:44px;height:44px;border-radius:11px">${ic(bad ? 'link-2-off' : 'mail-plus', 20)}</span></div>
+    <h1>${bad ? 'This invite link doesn’t work' : 'Gr8r Studio is invite-only'}</h1>
+    <p class="sub">${bad ? esc(bad) : 'To create an account, ask someone who already uses Gr8r Studio to invite you. They’ll send you a personal sign-up link.'}</p>
+    <button class="btn btn-primary btn-lg btn-block" data-a="auth" data-v="login">Sign in instead</button></div>`,
+    `<button class="btn btn-ghost btn-sm" data-a="auth" data-v="login">Log in</button>`,
+  );
 }
 
 /* ---------------- ONBOARDING ---------------- */
@@ -130,7 +143,7 @@ export function renderOnboarding() {
       .map(t => opt('tmpl', t.id, t.icon, t.name, t.tasks.length + ' starter tasks'))
       .join('')}</div>${nav()}`;
   if (st === 4)
-    body = `<h1>Invite your team</h1><p class="sub">Gr8r works best with your teammates. They'll get an email invite.</p><div class="col" style="gap:8px">${[0, 1, 2].map(i => `<input class="input input-lg" id="o-inv-${i}" placeholder="teammate@company.com" type="email" value="${esc((o.invites || '').split(',')[i] || '')}" data-in="onbInv" data-i="${i}" aria-label="Teammate email ${i + 1}">`).join('')}</div><button class="btn btn-ghost btn-sm" style="align-self:flex-start" data-a="copyInviteLink">${ic('link', 13)}Copy invite link instead</button>${nav('Send invites', true)}`;
+    body = `<h1>Invite your team</h1><p class="sub">Gr8r works best with your teammates. ${S.ui.user ? 'You’ll get a sign-up link for each person to send them.' : 'They’ll get an email invite.'}</p><div class="col" style="gap:8px">${[0, 1, 2].map(i => `<input class="input input-lg" id="o-inv-${i}" placeholder="teammate@company.com" type="email" value="${esc((o.invites || '').split(',')[i] || '')}" data-in="onbInv" data-i="${i}" aria-label="Teammate email ${i + 1}">`).join('')}</div><button class="btn btn-ghost btn-sm" style="align-self:flex-start" data-a="copyInviteLink">${ic('link', 13)}Copy invite link instead</button>${nav('Send invites', true)}`;
   if (st === 5) {
     const n = (o.invites || '').split(',').filter(x => x.includes('@')).length;
     body = `<div style="display:flex;justify-content:center"><span class="ftype ready-badge" style="--c:var(--green);width:48px;height:48px;border-radius:12px">${ic('circle-check', 22)}</span></div><h1>Your workspace is ready</h1><p class="sub">Here's what we set up for you.</p>

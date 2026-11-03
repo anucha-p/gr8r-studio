@@ -81,19 +81,26 @@ Every push and pull request runs lint, the format check and a production build
 
 Vercel serverless functions in `api/` with a [Neon](https://neon.tech) Postgres database:
 
-| Route                | Method     | Purpose                                                                          |
-| -------------------- | ---------- | -------------------------------------------------------------------------------- |
-| `/api/auth/signup`   | POST       | `{ name, email, password }` → creates account, signs in                          |
-| `/api/auth/login`    | POST       | `{ email, password, remember }` → signs in                                       |
-| `/api/auth/logout`   | POST       | ends the session                                                                 |
-| `/api/auth/me`       | GET        | the signed-in user, or 401                                                       |
-| `/api/workspace`     | GET / PUT  | the user's workspace (`{ data, prefs, views }`)                                  |
-| `/api/workspace-url` | GET / POST | check or claim the workspace address (`yoursite/<slug>`), unique across accounts |
+| Route                | Method              | Purpose                                                                          |
+| -------------------- | ------------------- | -------------------------------------------------------------------------------- |
+| `/api/auth/signup`   | POST                | `{ name, email, password }` → creates account, signs in                          |
+| `/api/auth/login`    | POST                | `{ email, password, remember }` → signs in                                       |
+| `/api/auth/logout`   | POST                | ends the session                                                                 |
+| `/api/auth/me`       | GET                 | the signed-in user, or 401                                                       |
+| `/api/workspace`     | GET / PUT           | the user's workspace (`{ data, prefs, views }`)                                  |
+| `/api/workspace-url` | GET / POST          | check or claim the workspace address (`yoursite/<slug>`), unique across accounts |
+| `/api/invites`       | GET / POST / DELETE | check an invite link (no sign-in), list, create or revoke the user's invites     |
 
 Passwords are hashed with scrypt; sessions are random tokens in an `HttpOnly` cookie, stored hashed.
 The workspace is saved as one JSON document with a version number, so a stale tab gets a 409 and
 reloads the latest copy instead of overwriting it. Tables are created on the first request
 (`db/schema.sql` has the same SQL).
+
+**Invite-only sign-up.** New accounts (email or Google) need an invite link from an existing
+user: Members → Invite member creates a single-use link per address, valid 14 days, that the
+inviter sends themselves (there's no email service yet). The invite only works for the address
+it was made for. The first account on an empty database needs no invite, so a fresh deploy can be
+set up. Existing accounts sign in as before.
 
 **Workspace URLs.** The address bar mirrors the page as `/<workspace>/<page>`, e.g.
 `/acme/project/web/table`, `/acme/task/WEB-201` or `/acme/settings/profile` (`src/shell/url.js`).
