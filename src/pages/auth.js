@@ -93,6 +93,8 @@ export function renderOnboarding() {
       ['design', 'palette', 'Design', 'Reviews & handoff'],
       ['marketing', 'megaphone', 'Marketing', 'Campaigns & content'],
       ['engineering', 'code', 'Engineering', 'Sprints & releases'],
+      ['education', 'graduation-cap', 'Education', 'Programs, courses & audits'],
+      ['events', 'calendar-days', 'Events', 'Conferences & workshops'],
       ['personal', 'user', 'Personal', 'Goals & side projects'],
       ['other', 'sparkles', 'Other', 'Something else'],
     ]

@@ -1,7 +1,7 @@
 /* ---------- store ---------- */
 import { TODAY, diffD, iso, parse, uid } from './utils.js';
 import { PCOLORS, TEAMS_SEED } from './constants.js';
-import { seed } from '../data/seed.js';
+import { blankWorkspace, seed } from '../data/seed.js';
 import { ApiError, api } from './api.js';
 
 export const STORE_KEY = 'gr8r.v2';
@@ -106,13 +106,16 @@ export function applyState(st) {
   S.prefs = Object.assign({}, DEFAULT_PREFS, st.prefs || {});
   S.views = st.views || {};
 }
-/* Loads the user's workspace; a brand-new account starts from fresh seed data. */
-export async function pullRemote(fresh) {
+/* Loads the user's workspace; an account with nothing saved yet starts from an empty one. */
+export async function pullRemote() {
   const r = await api('workspace');
   remote.version = r.version;
   if (r.state) applyState(r.state);
   else {
-    if (fresh) S.data = seed();
+    S.data = blankWorkspace(S.ui.user);
+    S.views = {};
+    S.prefs.name = S.ui.user.name;
+    S.prefs.title = '';
     await pushRemote();
   }
 }

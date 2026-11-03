@@ -3,7 +3,7 @@
    ===================================================================== */
 import { $, $$, TODAY, addD, dOff, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
 import { PR, PSTAT, ST } from '../core/constants.js';
-import { seed } from '../data/seed.js';
+import { blankWorkspace, hasSample, seed, stripSample } from '../data/seed.js';
 import { api } from '../core/api.js';
 import {
   D,
@@ -1947,6 +1947,13 @@ A.delWorkspace = () =>
     danger: true,
     typeName: D().ws.name,
     run: () => {
+      if (S.ui.user) {
+        S.data = blankWorkspace(S.ui.user);
+        S.views = {};
+        save();
+        go('home');
+        return toast('Workspace deleted. You have a fresh, empty workspace.');
+      }
       S.data = seed();
       S.views = {};
       save();
@@ -2147,9 +2154,35 @@ async function authRequest(btnId, path, body, onOk) {
 }
 export async function signedIn(user, fresh) {
   S.ui.user = user;
-  if (fresh) S.prefs.name = user.name;
   await pullRemote(fresh);
+  if (hasSample(D()))
+    setTimeout(
+      () =>
+        toast('Your workspace still has the sample projects and people.', { kind: 'info', ms: 10000, action: 'Remove sample data', onAction: A.removeSample }),
+      600,
+    );
 }
+A.removeSample = () => {
+  S.ui.pop = null;
+  confirmDlg({
+    title: 'Remove sample data?',
+    body: 'The sample projects (with their tasks, files and comments), sample people and demo history are deleted. Projects you created stay, but tasks you added inside a sample project go with it.',
+    ok: 'Remove sample data',
+    danger: true,
+    icon: 'trash-2',
+    run: () => {
+      mutate(() => {
+        S.data = stripSample(D(), S.ui.user || { name: S.prefs.name, email: me()?.email || '' });
+        if (S.prefs.name === DEFAULT_PREFS.name && S.ui.user) S.prefs.name = S.ui.user.name;
+        if (S.prefs.title === DEFAULT_PREFS.title) S.prefs.title = '';
+        S.views = {};
+        S.ui.drawer = null;
+      });
+      go('home');
+      toast('Sample data removed');
+    },
+  });
+};
 A.socialAuth = el => {
   if (S.ui.backend && el.dataset.v === 'Google') {
     el.classList.add('is-loading');
@@ -2246,7 +2279,13 @@ A.doReset = () => {
 /* onboarding */
 A.onbSet = el => {
   S.ui.onbData[el.dataset.k] = el.dataset.v;
+  const useTmpl = { product: 'product', design: 'design', marketing: 'mkt', engineering: 'software', education: 'edu-dev', events: 'event' }[el.dataset.v];
+  if (el.dataset.k === 'use' && useTmpl && !S.ui.onbData.tmplTouched) {
+    S.ui.onbData.tmpl = useTmpl;
+    if (!S.ui.onbData.projTouched) S.ui.onbData.proj = TEMPLATES.find(x => x.id === useTmpl).name;
+  }
   if (el.dataset.k === 'tmpl') {
+    S.ui.onbData.tmplTouched = true;
     const t = TEMPLATES.find(x => x.id === el.dataset.v);
     if (t && !S.ui.onbData.projTouched) S.ui.onbData.proj = t.name === 'Website' ? 'Website Launch' : t.name;
   }
