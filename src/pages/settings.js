@@ -77,9 +77,6 @@ export const SOON = {
     'Push notifications are coming soon',
     "Desktop and mobile notifications aren't available yet. You'll find updates in your Inbox.",
   ],
-  plan: ['gem', 'Billing is coming soon', 'Gr8r Studio is free while it’s being built. There is no plan to choose and nothing to pay.'],
-  payment: ['credit-card', 'Billing is coming soon', 'No payment method is needed. Gr8r Studio is free for now.'],
-  invoices: ['receipt', 'Billing is coming soon', 'There are no invoices: nothing has been charged.'],
 };
 const soonPage = (title, [icon, h, body]) =>
   `<h1>${title}</h1><div class="panel" style="padding:22px;margin-top:14px;display:flex;gap:14px;align-items:flex-start"><span class="ftype" style="--c:var(--accent);width:38px;height:38px;border-radius:10px">${ic(icon, 18)}</span><div><b>${h}</b><p class="muted" style="margin:6px 0 0;font-size:13px;line-height:1.55">${body}</p></div></div>`;
@@ -100,7 +97,12 @@ export function pageSettings() {
   const sec = S.ui.params.sec || S.ui.settings || 'appearance';
   const title = SET_NAV.flatMap(g => g[1]).find(x => x[0] === sec) || ['appearance', 'Appearance'];
   return `<div class="set">
-    <nav class="set-nav" aria-label="Settings">${SET_NAV.map(([g, items]) => `<div class="gh">${g}</div>${items.map(([k, n, i]) => `<button class="sitem ${sec === k ? 'on' : ''}" data-a="go" data-r="settings" data-sec="${k}">${ic(i, 15)}<span>${n}</span>${soonTag(k)}</button>`).join('')}`).join('')}</nav>
+    <nav class="set-nav" aria-label="Settings">${SET_NAV.filter(([g]) => !(S.ui.user && g === 'Billing'))
+      .map(
+        ([g, items]) =>
+          `<div class="gh">${g}</div>${items.map(([k, n, i]) => `<button class="sitem ${sec === k ? 'on' : ''}" data-a="go" data-r="settings" data-sec="${k}">${ic(i, 15)}<span>${n}</span>${soonTag(k)}</button>`).join('')}`,
+      )
+      .join('')}</nav>
     <div class="set-body" data-keep="set:${sec}"><div class="set-in">${settingsBody(sec, title[1])}</div></div>
   </div>`;
 }
@@ -109,6 +111,7 @@ export function settingsBody(sec, title) {
   const d = D();
   const np = d.notifPrefs;
   const H = lead => `<h1>${title}</h1><p class="lead">${lead}</p>`;
+  if (S.ui.user && ['plan', 'payment', 'invoices'].includes(sec)) return page404();
   if (S.ui.user && SOON[sec]) return soonPage(title, SOON[sec]);
   if (S.ui.user && (sec === 'password' || sec === 'sessions') && !S.ui.acct) {
     loadAccount().then(render);

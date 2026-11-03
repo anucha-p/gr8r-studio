@@ -2,7 +2,7 @@
 import { TODAY, diffD, esc, parse, relDate } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { LB, PR, PSTAT, ST } from '../core/constants.js';
-import { D, mem, pColor } from '../core/store.js';
+import { D, S, mem, pColor } from '../core/store.js';
 
 export function av(id, cls = '', tip = true) {
   const m = mem(id);
@@ -79,7 +79,22 @@ export const FT = {
   sheet: { c: '#3D8E5F', i: 'file-spreadsheet', n: 'Spreadsheet' },
   doc: { c: '#3B82C4', i: 'file-text', n: 'Document' },
   code: { c: '#C48A1E', i: 'file-code', n: 'Code' },
+  link: { c: '#3B82C4', i: 'link', n: 'Link' },
   other: { c: '#6B7280', i: 'file', n: 'File' },
+};
+/* Where a file's contents can be fetched: the files API for uploads stored on the server, an
+   in-memory object URL for files added in the local demo, or null (only metadata was kept). */
+export function fileSrc(f, download) {
+  if (f.path) return `/api/files?path=${encodeURIComponent(f.path)}${download ? '&download=1' : ''}`;
+  return S.ui.localFiles?.[f.id] || null;
+}
+export const fileExt = f => (f.name.split('.').pop() || '').toLowerCase();
+export const linkHost = url => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 };
 export function fileType(name) {
   const e = (name.split('.').pop() || '').toLowerCase();
@@ -99,6 +114,11 @@ export function fsize(b) {
 }
 export function filePrev(f) {
   const t = FT[f.type] || FT.other;
+  const src = f.type === 'img' && fileSrc(f);
+  if (src)
+    return `<div class="fprev" style="padding:0;overflow:hidden"><img src="${esc(src)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block"></div>`;
+  if (f.type === 'link')
+    return `<div class="fprev"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;color:${t.c}">${ic('link', 26)}<span class="trunc faint" style="max-width:90%;font-size:11px">${esc(linkHost(f.url))}</span></div></div>`;
   let art;
   if (f.type === 'img')
     art = `<div class="art" style="padding:0;overflow:hidden;background:linear-gradient(135deg,color-mix(in srgb,${t.c} 35%,var(--surface)),color-mix(in srgb,${t.c} 10%,var(--surface)))"><svg viewBox="0 0 100 60" preserveAspectRatio="none" style="width:100%;height:100%"><path d="M0 60 L30 28 L52 46 L70 32 L100 58 L100 60Z" fill="color-mix(in srgb,${t.c} 45%,var(--surface))"/><circle cx="76" cy="16" r="7" fill="color-mix(in srgb,${t.c} 30%,var(--surface))"/></svg></div>`;

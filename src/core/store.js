@@ -157,6 +157,8 @@ export const canSee = p => !p.private || p.members.includes(D().me);
 export const tasksOf = pid => D().tasks.filter(t => t.project === pid && !t.archived);
 export const allTasks = () => D().tasks.filter(t => !t.archived && canSee(proj(t.project)));
 export const isOver = t => t.due && t.status !== 'done' && diffD(parse(t.due), TODAY) < 0;
+/* Tasks a project file is attached to (a file can be attached to several). */
+export const fileTasks = fid => D().tasks.filter(t => !t.archived && t.attachments.some(a => a.id === fid));
 export const commentsOf = tid => D().comments.filter(c => c.task === tid);
 export function progressOf(pid) {
   const ts = tasksOf(pid);
