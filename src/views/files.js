@@ -2,7 +2,7 @@
 import { ago, esc } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { D, S, fileTasks, mem } from '../core/store.js';
-import { FT, av, empty, filePrev, fileType } from '../ui/helpers.js';
+import { FT, av, empty, filePrev } from '../ui/helpers.js';
 
 export function filesHtml(pid) {
   const u = S.ui;
@@ -11,10 +11,9 @@ export function filesHtml(pid) {
   const sort = u.fileSort || 'date';
   let fs = D().files.filter(f => f.project === pid && (!q || f.name.toLowerCase().includes(q)) && (ft === 'all' || f.type === ft));
   fs.sort((a, b) => (sort === 'name' ? a.name.localeCompare(b.name) : sort === 'type' ? a.type.localeCompare(b.type) : b.at - a.at));
-  const ups = (u.uploads || []).filter(x => x.project === pid);
   const view = u.fileView;
   return `<div class="toolbar">
-      <div class="inwrap">${ic('search', 13)}<input class="input search-sm" id="file-q" data-in="fileQ" placeholder="Search files" value="${esc(u.fileQ || '')}" aria-label="Search files"></div>
+      <div class="inwrap">${ic('search', 13)}<input class="input search-sm" id="file-q" data-in="fileQ" placeholder="Search links" value="${esc(u.fileQ || '')}" aria-label="Search files"></div>
       <select class="select" style="height:26px;width:auto;font-size:12px" data-in="fileType" aria-label="Filter by type"><option value="all">All types</option>${Object.entries(
         FT,
       )
@@ -35,17 +34,17 @@ export function filesHtml(pid) {
       ]
         .map(([k, i]) => `<button class="${view === k ? 'on' : ''}" data-a="set" data-k="fileView" data-v="${k}" aria-label="${k} view">${ic(i, 13)}</button>`)
         .join('')}</div>
-      <label class="btn btn-primary btn-sm" style="cursor:pointer">${ic('upload', 13)}Upload<input type="file" multiple hidden data-in="uploadFiles" data-project="${pid}"></label>
+      <button class="btn btn-primary btn-sm" data-a="attachLink" data-project="${pid}">${ic('plus', 13)}Add link</button>
     </div>
     <div class="page wide" style="padding-top:16px">
-      <label class="dropzone" data-dropzone="${pid}" style="margin-bottom:16px">${ic('upload-cloud', 18)}<span>Drop files here or <span class="link">browse</span> — up to 100 MB each</span><input type="file" multiple hidden data-in="uploadFiles" data-project="${pid}"></label>
-      ${ups.length ? `<div class="col" style="gap:6px;margin-bottom:16px">${ups.map(x => `<div class="upl"><span class="ftype" style="--c:${FT[fileType(x.name)].c}">${ic(FT[fileType(x.name)].i, 14)}</span><div class="grow"><div class="row"><span class="trunc" style="font-weight:500">${esc(x.name)}</span><span class="sp"></span><span class="faint num" style="font-size:11.5px" id="upct-${x.id}">${x.pct}%</span></div><div class="prog" style="margin-top:6px"><i id="upbar-${x.id}" style="--p:${x.pct / 100}"></i></div></div></div>`).join('')}</div>` : ''}
       ${
         !fs.length
           ? empty(
               q || ft !== 'all' ? 'search-x' : 'folder-open',
-              q || ft !== 'all' ? 'No results found' : 'No files yet',
-              q || ft !== 'all' ? 'No files match your search.' : 'Upload designs, documents, and assets to share them with the project.',
+              q || ft !== 'all' ? 'No results found' : 'No links yet',
+              q || ft !== 'all'
+                ? 'No links match your search.'
+                : 'Save links to shared documents, folders and pages here, or add them to tasks. Each link can be on several tasks.',
               '',
             )
           : view === 'grid'

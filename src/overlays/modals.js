@@ -89,9 +89,7 @@ export function taskModal(m, H) {
     <div class="field"><span class="label">Subtasks</span>
       ${f.subtasks.map((s, i) => `<div class="subt" style="padding:0 4px">${ic('circle', 13)}<span class="s">${esc(s.title)}</span><button type="button" class="ibtn ibtn-xs x" style="opacity:1" data-a="formRmSub" data-i="${i}" aria-label="Remove">${ic('x', 12)}</button></div>`).join('')}
       <div class="inwrap">${ic('plus', 14)}<input class="input" id="f-sub" data-key-enter="formAddSub" placeholder="Add a subtask and press Enter"></div></div>
-    <div class="field"><span class="label">Attachments</span>
-      ${f.files.length ? `<div class="col" style="gap:4px">${f.files.map((x, i) => `<div class="upl" style="padding:6px 10px"><span class="ftype" style="--c:${FT[x.type].c};width:22px;height:22px">${ic(FT[x.type].i, 12)}</span><span class="grow trunc">${esc(x.name)}</span><span class="faint" style="font-size:11.5px">${x.size}</span><button type="button" class="ibtn ibtn-xs" data-a="formRmFile" data-i="${i}" aria-label="Remove">${ic('x', 12)}</button></div>`).join('')}</div>` : ''}
-      <label class="dropzone" style="padding:10px">${ic('paperclip', 14)}<span>Attach files</span><input type="file" multiple hidden data-in="formFiles"></label></div>
+    <div class="field"><span class="label">Attachments</span></div>
   </form>
   <div class="modal-f">${m.edit ? '' : `<label class="row" style="gap:8px;font-size:12.5px;color:var(--text-2);cursor:pointer"><input type="checkbox" class="toggle" id="f-more" data-in="formMore" ${f.more ? 'checked' : ''}>Create more</label>`}<span class="sp"></span>
     <span class="faint hide-m" style="font-size:11.5px"><kbd>${MOD}</kbd> <kbd>↵</kbd></span>
@@ -426,7 +424,7 @@ export function filePreviewModal(m, H) {
   const box = 'border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)';
   let body;
   if (!src)
-    body = `<div style="${box};padding:28px;text-align:center"><div style="color:${t.c}">${ic(t.i, 30)}</div><p class="muted" style="margin:10px 0 0;font-size:13px">${S.ui.user ? 'This file was added before uploads were stored, so only its name was kept. Upload it again to preview it.' : 'Files added in the local demo only last until the page is reloaded.'}</p></div>`;
+    body = `<div style="${box};padding:28px;text-align:center"><div style="color:${t.c}">${ic(t.i, 30)}</div><p class="muted" style="margin:10px 0 0;font-size:13px">Gr8r Studio keeps links rather than files, so only this file's name was saved. Put the file in Google Drive, OneDrive or similar and add its link instead.</p></div>`;
   else if (f.type === 'img')
     body = `<div style="${box};display:flex;justify-content:center"><img src="${esc(src)}" alt="${esc(f.name)}" style="max-width:100%;max-height:70vh;object-fit:contain;display:block"></div>`;
   else if (ext === 'pdf' || TEXT.includes(ext))
@@ -444,7 +442,7 @@ export function filePreviewModal(m, H) {
 }
 export function attachLinkModal(m, H) {
   const err = S.ui.errors.alUrl;
-  return `${H('Add a link', 'Attach a web page, shared document or folder to this task.')}
+  return `${H('Add a link', m.tid ? 'Attach a web page, shared document or folder to this task.' : 'Save a web page, shared document or folder in this project.')}
   <form class="modal-b" data-submit="submitLink">
     <div class="field"><label class="label" for="al-url">Link</label><input class="input ${err ? 'is-error' : ''}" id="al-url" type="url" placeholder="https://docs.google.com/…" autofocus>${err ? `<span class="err">${ic('circle-alert', 12)}${err}</span>` : ''}</div>
     <div class="field"><label class="label" for="al-name">Name <span class="faint">(optional)</span></label><input class="input" id="al-name" placeholder="e.g. Course outline draft"></div>
@@ -456,7 +454,7 @@ export function attachFilesModal(m, H) {
   const t = task(m.tid);
   const have = new Set(t.attachments.map(a => a.id));
   const fs = D().files.filter(f => f.project === t.project && !have.has(f.id));
-  return `${H('Attach from project', `Files and links in ${esc(proj(t.project)?.name || 'this project')}. They stay in one place and can be attached to several tasks.`)}
+  return `${H('Add from project', `Links saved in ${esc(proj(t.project)?.name || 'this project')}. One link can be added to several tasks.`)}
   <div class="modal-b" style="gap:4px;max-height:55vh;overflow:auto">${
     fs.length
       ? fs
@@ -465,7 +463,7 @@ export function attachFilesModal(m, H) {
               `<label class="row" style="gap:10px;padding:7px 4px;cursor:pointer;border-radius:6px"><input type="checkbox" class="check" data-fid="${f.id}"><span class="ftype" style="--c:${(FT[f.type] || FT.other).c}">${ic((FT[f.type] || FT.other).i, 14)}</span><span class="grow trunc">${esc(f.name)}</span><span class="faint" style="font-size:12px">${f.type === 'link' ? esc(linkHost(f.url)) : f.size}${fileTasks(f.id).length ? ` · on ${fileTasks(f.id).length} task${fileTasks(f.id).length > 1 ? 's' : ''}` : ''}</span></label>`,
           )
           .join('')
-      : `<p class="muted" style="font-size:13px;margin:6px 0">Every file in this project is already attached to this task. Upload files in the project's Files tab or here with Upload.</p>`
+      : `<p class="muted" style="font-size:13px;margin:6px 0">Every link in this project is already on this task. Add new ones with Add link.</p>`
   }</div>
   <div class="modal-f"><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button>${fs.length ? '<button class="btn btn-primary" data-a="submitAttachFiles">Attach</button>' : ''}</div>`;
 }

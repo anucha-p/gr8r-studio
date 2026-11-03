@@ -9,8 +9,6 @@ import logout from './_routes/auth/logout.js';
 import me from './_routes/auth/me.js';
 import password from './_routes/auth/password.js';
 import signup from './_routes/auth/signup.js';
-import files from './_routes/files.js';
-import filesUpload from './_routes/files-upload.js';
 import invites from './_routes/invites.js';
 import sessions from './_routes/sessions.js';
 import workspace from './_routes/workspace.js';
@@ -25,8 +23,6 @@ const ROUTES = {
   'auth/me': me,
   'auth/password': password,
   'auth/signup': signup,
-  files,
-  'files-upload': filesUpload,
   invites,
   sessions,
   workspace,

@@ -25,7 +25,7 @@ import {
   tasksOf,
   visibleProjects,
 } from '../core/store.js';
-import { fileType, fsize, linkHost } from '../ui/helpers.js';
+import { fileType, linkHost } from '../ui/helpers.js';
 import { effectiveDark } from '../core/theme.js';
 import { mutate, toast } from '../ui/toast.js';
 import { ROUTE_NAMES, autosize, focusKey, fxSet, go, render } from '../shell/render.js';
@@ -555,7 +555,6 @@ A.editTask = el => {
     start: t.start,
     labels: [...t.labels],
     subtasks: t.subtasks.map(s => ({ ...s })),
-    files: [],
     recur: t.recur,
     more: false,
   };
@@ -581,7 +580,6 @@ A.newTask = el => {
     start: null,
     labels: [],
     subtasks: [],
-    files: [],
     recur: null,
     more: S.ui.form?.more || false,
   };
@@ -598,10 +596,6 @@ IN.form = el => {
 IN.formMore = el => {
   S.ui.form.more = el.checked;
 };
-IN.formFiles = el => {
-  [...el.files].forEach(f => S.ui.form.files.push({ name: f.name, size: fsize(f.size), type: fileType(f.name) }));
-  render();
-};
 KEY.formAddSub = el => {
   const v = el.value.trim();
   if (!v) return;
@@ -611,10 +605,6 @@ KEY.formAddSub = el => {
 };
 A.formRmSub = el => {
   S.ui.form.subtasks.splice(+el.dataset.i, 1);
-  render();
-};
-A.formRmFile = el => {
-  S.ui.form.files.splice(+el.dataset.i, 1);
   render();
 };
 A.submitTask = () => {
@@ -630,7 +620,6 @@ A.submitTask = () => {
     return;
   }
   S.ui.errors = {};
-  const files = f.files.map(x => ({ id: uid('a'), name: x.name, type: x.type, size: x.size, by: D().me, at: Date.now() }));
   const base = {
     title,
     project: f.project,
@@ -656,7 +645,6 @@ A.submitTask = () => {
             .trim()
         )
           t.desc = f.desc ? `<p>${esc(f.desc)}</p>` : '';
-        t.attachments.push(...files);
       })
     )
       return;
@@ -668,13 +656,12 @@ A.submitTask = () => {
   let t;
   if (
     !mutate(() => {
-      t = createTask({ ...base, desc: f.desc ? `<p>${esc(f.desc)}</p>` : '', attachments: files });
-      files.forEach(x => D().files.unshift({ ...x, project: t.project, task: t.id }));
+      t = createTask({ ...base, desc: f.desc ? `<p>${esc(f.desc)}</p>` : '' });
     })
   )
     return;
   if (f.more) {
-    Object.assign(f, { title: '', desc: '', subtasks: [], files: [] });
+    Object.assign(f, { title: '', desc: '', subtasks: [] });
     render();
     setTimeout(() => $('#f-title')?.focus(), 0);
     toast(`Created ${t.key}`, { ms: 2000 });
@@ -806,10 +793,8 @@ A.rmAttach = el => {
     t.attachments = t.attachments.filter(a => a.id !== el.dataset.aid);
     logAct('removed a file from', t);
   });
-  // The file stays in the project's files; deleting it there takes it off every task.
-  const inProject = D().files.some(x => x.id === f.id);
-  toast(inProject ? `Removed ${f.name} from this task. It's still in the project's files.` : `Removed ${f.name}`);
-  if (!inProject) purgeFile(f);
+  // The link stays in the project's Links tab; deleting it there takes it off every task.
+  toast(D().files.some(x => x.id === f.id) ? `Removed ${f.name} from this task. It's still in the project's links.` : `Removed ${f.name}`);
 };
 A.filePreview = el => {
   const t = task(el.dataset.tid);
@@ -831,86 +816,9 @@ function addFileRecord(rec, project, tid) {
     logAct(rec.type === 'link' ? 'added a link to' : 'added a file to', task(tid), rec.name);
   }
 }
-/* Whether the server has file storage (a Vercel Blob store) connected; asked once per page load. */
-let storageCheck;
-const storageReady = () =>
-  (storageCheck ||= api('files-upload')
-    .then(r => r.configured)
-    .catch(() => {
-      storageCheck = null;
-      return true; // unknown: let the upload itself report what went wrong
-    }));
-export const FILE_STORAGE_MISSING =
-  'File uploads aren’t set up yet. In Vercel, connect a private Blob store to the project (Storage → Create → Blob), then redeploy.';
-/* Uploads: to Vercel Blob for signed-in users (through /api/files-upload), or kept in memory for
-   this browser session in the local demo. Progress shows in the drawer / files view. */
-export async function handleFiles(files, ctx) {
-  if (!files || !files.length) return;
-  if (S.ui.offline) {
-    toast("Upload failed — you're offline.", { kind: 'err', action: 'Try again', onAction: () => {} });
-    return;
-  }
-  if (S.ui.user && !(await storageReady())) return toast(FILE_STORAGE_MISSING, { kind: 'err', ms: 10000 });
-  S.ui.uploads = S.ui.uploads || [];
-  [...files].forEach(async file => {
-    const up = { id: uid('u'), name: file.name, size: fsize(file.size), project: ctx.project, task: ctx.task, pct: 0 };
-    S.ui.uploads.push(up);
-    render();
-    const progress = pct => {
-      up.pct = Math.round(pct);
-      document.getElementById('upbar-' + up.id)?.style.setProperty('--p', up.pct / 100);
-      const pc = document.getElementById('upct-' + up.id);
-      if (pc) pc.textContent = up.pct + '%';
-    };
-    const rec = {
-      id: uid('f'),
-      name: file.name,
-      type: fileType(file.name),
-      size: up.size,
-      bytes: file.size,
-      mime: file.type || '',
-      by: D().me,
-      at: Date.now(),
-    };
-    try {
-      if (S.ui.user) {
-        const { uploadPresigned } = await import('@vercel/blob/client');
-        const blob = await uploadPresigned(`u/${S.ui.user.id}/${file.name}`, file, {
-          access: 'private',
-          handleUploadUrl: '/api/files-upload',
-          onUploadProgress: e => progress(e.percentage),
-        });
-        rec.path = blob.pathname;
-      } else {
-        (S.ui.localFiles ||= {})[rec.id] = URL.createObjectURL(file);
-        progress(100);
-      }
-      addFileRecord(rec, up.project, up.task);
-      save();
-      toast(`Uploaded ${up.name}`);
-    } catch (e) {
-      console.warn('Upload failed', e);
-      const msg = /too large|size/i.test(e.message || '')
-        ? `${up.name} is larger than 100 MB.`
-        : `Couldn't upload ${up.name}${e.message ? ` (${e.message})` : ''}. Try again.`;
-      toast(msg, { kind: 'err', ms: 8000 });
-    } finally {
-      S.ui.uploads = S.ui.uploads.filter(x => x !== up);
-      render();
-    }
-  });
-}
-/* Erases stored contents once no file record points at them (Undo restores the record first). */
-function purgeFile(f, delay = 9000) {
-  if (!f.path || !S.ui.user) return;
-  setTimeout(() => {
-    if (D().files.some(x => x.path === f.path) || D().tasks.some(t => t.attachments.some(a => a.path === f.path))) return;
-    api('files?path=' + encodeURIComponent(f.path), { method: 'DELETE' }).catch(() => {});
-  }, delay);
-}
-
 /* links and existing project files as attachments */
-A.attachLink = el => openModal({ type: 'attachLink', tid: el.dataset.id });
+/* Links live in the project (its Links tab) and can be on any number of its tasks. */
+A.attachLink = el => openModal({ type: 'attachLink', tid: el.dataset.id || null, project: el.dataset.project || task(el.dataset.id)?.project });
 A.submitLink = () => {
   const m = S.ui.modals[S.ui.modals.length - 1];
   let url = $('#al-url').value.trim();
@@ -931,9 +839,8 @@ A.submitLink = () => {
     $('#al-name').value = name;
     return;
   }
-  const t = task(m.tid);
   const rec = { id: uid('f'), name: name || linkHost(url), type: 'link', url, size: '', by: D().me, at: Date.now() };
-  if (!mutate(() => addFileRecord(rec, t.project, t.id))) return;
+  if (!mutate(() => addFileRecord(rec, m.project, m.tid))) return;
   S.ui.errors = {};
   S.ui.modals.pop();
   render();
@@ -944,7 +851,7 @@ A.submitAttachFiles = () => {
   const m = S.ui.modals[S.ui.modals.length - 1];
   const t = task(m.tid);
   const ids = $$('.modal input[data-fid]:checked').map(x => x.dataset.fid);
-  if (!ids.length) return toast('Choose at least one file', { kind: 'err' });
+  if (!ids.length) return toast('Choose at least one link', { kind: 'err' });
   mutate(() =>
     ids.forEach(id => {
       // eslint-disable-next-line no-unused-vars
@@ -955,13 +862,8 @@ A.submitAttachFiles = () => {
   );
   S.ui.modals.pop();
   render();
-  toast(`Attached ${ids.length} file${ids.length > 1 ? 's' : ''}`);
+  toast(`Added ${ids.length} link${ids.length > 1 ? 's' : ''}`);
 };
-IN.uploadFiles = el => {
-  handleFiles(el.files, { project: el.dataset.project, task: el.dataset.task });
-  el.value = '';
-};
-
 /* comments */
 IN.draft = el => {
   const id = el.dataset.id;
@@ -1857,7 +1759,6 @@ A.delFile = el => {
         })
       ) {
         toast(`Deleted ${f.name}`, { action: 'Undo', onAction: () => restore(snap) });
-        purgeFile(f);
       }
     },
   });
