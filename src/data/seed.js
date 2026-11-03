@@ -553,7 +553,7 @@ export function blankWorkspace(user) {
   const first = (user.name || '').split(' ')[0] || 'My';
   return {
     ...s,
-    ws: { name: `${first}'s workspace`, url: 'workspace', c: '#5A67D8' },
+    ws: { name: `${first}'s workspace`, url: first.toLowerCase().replace(/[^a-z0-9]+/g, '') || 'workspace', c: '#5A67D8' },
     workspaces: [{ id: 'w1', name: `${first}'s workspace`, c: '#5A67D8', plan: 'Free' }],
     members: [{ ...s.members[0], name: user.name, email: user.email, role: 'Owner', title: '', last: 0, tz: '—' }],
     projects: [],

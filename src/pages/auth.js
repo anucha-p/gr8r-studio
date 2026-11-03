@@ -78,6 +78,14 @@ export function renderAuth() {
 }
 
 /* ---------------- ONBOARDING ---------------- */
+function urlHint(url) {
+  if (!url) return '';
+  const c = S.ui.urlCheck;
+  const known = !S.ui.user || c?.url === url;
+  const ok = !S.ui.user || c?.ok;
+  if (!known) return `<span class="hint">Checking ${esc(SITE())}/${esc(url)}…</span>`;
+  return `<span class="hint" style="color:var(--${ok ? 'green' : 'red'});display:flex;gap:4px;align-items:center">${ic(ok ? 'check' : 'circle-alert', 12)}${esc(SITE())}/${esc(url)} ${ok ? 'is available' : 'is taken. Try another address.'}</span>`;
+}
 export function renderOnboarding() {
   const st = S.ui.onb;
   const o = S.ui.onbData;
@@ -104,7 +112,7 @@ export function renderOnboarding() {
     const e = S.ui.errors.ws;
     body = `<h1>Create your workspace</h1><p class="sub">A workspace is where your team's projects live.</p>
     <div class="field"><label class="label" for="o-ws">Workspace name</label><input class="input input-lg ${e ? 'is-error' : ''}" id="o-ws" data-in="onbWs" value="${esc(o.ws)}" placeholder="e.g. Gr8r Studio" autofocus>${e ? `<span class="err">${ic('circle-alert', 12)}${e}</span>` : ''}</div>
-    <div class="field"><label class="label" for="o-url">Workspace URL</label><div class="row" style="gap:0"><span class="input input-lg" style="width:auto;background:var(--surface-2);border-right:0;border-radius:6px 0 0 6px;display:flex;align-items:center;color:var(--text-2)">${esc(SITE())}/</span><input class="input input-lg" id="o-url" value="${esc(o.url || '')}" data-in="onbUrl" style="border-radius:0 6px 6px 0" placeholder="gr8rstudio"></div>${o.url ? `<span class="hint" style="color:var(--green);display:flex;gap:4px;align-items:center">${ic('check', 12)}${esc(SITE())}/${esc(o.url)} is available</span>` : ''}</div>${nav()}`;
+    <div class="field"><label class="label" for="o-url">Workspace URL</label><div class="row" style="gap:0"><span class="input input-lg" style="width:auto;background:var(--surface-2);border-right:0;border-radius:6px 0 0 6px;display:flex;align-items:center;color:var(--text-2)">${esc(SITE())}/</span><input class="input input-lg" id="o-url" value="${esc(o.url || '')}" data-in="onbUrl" style="border-radius:0 6px 6px 0" placeholder="gr8rstudio"></div>${urlHint(o.url)}</div>${nav()}`;
   }
   if (st === 2)
     body = `<h1>How does your team work?</h1><p class="sub">We'll set your default project view.</p><div class="opts" role="radiogroup" style="grid-template-columns:repeat(2,minmax(0,1fr))">${[
