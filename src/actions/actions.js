@@ -831,14 +831,26 @@ function addFileRecord(rec, project, tid) {
     logAct(rec.type === 'link' ? 'added a link to' : 'added a file to', task(tid), rec.name);
   }
 }
+/* Whether the server has file storage (a Vercel Blob store) connected; asked once per page load. */
+let storageCheck;
+const storageReady = () =>
+  (storageCheck ||= api('files-upload')
+    .then(r => r.configured)
+    .catch(() => {
+      storageCheck = null;
+      return true; // unknown: let the upload itself report what went wrong
+    }));
+export const FILE_STORAGE_MISSING =
+  'File uploads aren’t set up yet. In Vercel, connect a private Blob store to the project (Storage → Create → Blob), then redeploy.';
 /* Uploads: to Vercel Blob for signed-in users (through /api/files-upload), or kept in memory for
    this browser session in the local demo. Progress shows in the drawer / files view. */
-export function handleFiles(files, ctx) {
+export async function handleFiles(files, ctx) {
   if (!files || !files.length) return;
   if (S.ui.offline) {
     toast("Upload failed — you're offline.", { kind: 'err', action: 'Try again', onAction: () => {} });
     return;
   }
+  if (S.ui.user && !(await storageReady())) return toast(FILE_STORAGE_MISSING, { kind: 'err', ms: 10000 });
   S.ui.uploads = S.ui.uploads || [];
   [...files].forEach(async file => {
     const up = { id: uid('u'), name: file.name, size: fsize(file.size), project: ctx.project, task: ctx.task, pct: 0 };
@@ -878,12 +890,11 @@ export function handleFiles(files, ctx) {
       save();
       toast(`Uploaded ${up.name}`);
     } catch (e) {
-      const msg = /too large|size/i.test(e.message)
+      console.warn('Upload failed', e);
+      const msg = /too large|size/i.test(e.message || '')
         ? `${up.name} is larger than 100 MB.`
-        : e.message?.includes('set up')
-          ? e.message
-          : `Couldn't upload ${up.name}. Try again.`;
-      toast(msg, { kind: 'err', ms: 6000 });
+        : `Couldn't upload ${up.name}${e.message ? ` (${e.message})` : ''}. Try again.`;
+      toast(msg, { kind: 'err', ms: 8000 });
     } finally {
       S.ui.uploads = S.ui.uploads.filter(x => x !== up);
       render();
