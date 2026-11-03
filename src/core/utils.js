@@ -82,3 +82,6 @@ export function dayBucket(ts) {
   if (n > -7) return 'This week';
   return 'Earlier';
 }
+
+/* The address the app is served from (e.g. gr8r-studio.vercel.app), shown before workspace URLs. */
+export const SITE = () => location.host;

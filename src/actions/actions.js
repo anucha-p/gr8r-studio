@@ -480,7 +480,7 @@ A.copyLink = el => {
           : d.id && proj(d.id)
             ? `project/${proj(d.id).key.toLowerCase()}`
             : '';
-  copy(`https://gr8rstudio.com/${D().ws.url}/${path}`);
+  copy(`${location.origin}/${D().ws.url}/${path}`);
 };
 A.copyText = el => copy(el.dataset.text, 'Copied to clipboard');
 A.copyEmail = el => {
@@ -1620,7 +1620,7 @@ A.submitInvite = () => {
     toast(`${list.length} invitation${list.length > 1 ? 's' : ''} sent`);
   });
 };
-A.copyInviteLink = () => copy(`https://gr8rstudio.com/join/${D().ws.url}-7f3k2`, 'Invite link copied');
+A.copyInviteLink = () => copy(`${location.origin}/join/${D().ws.url}-7f3k2`, 'Invite link copied');
 A.resendInvite = el => {
   S.ui.pop = null;
   render();
@@ -2204,9 +2204,27 @@ async function authRequest(btnId, path, body, onOk) {
     typed.forEach(([id, v]) => id && $('#' + CSS.escape(id)) && ($('#' + CSS.escape(id)).value = v));
   }
 }
+/* The account is the source of truth for the user's email; the sample owner's name and title are
+   replaced too (workspaces saved before accounts started empty still carry them). */
+function syncProfile(user) {
+  const m = me();
+  if (!m) return;
+  const sample = m.email === 'hello@gr8rstudio.com' || m.name === DEFAULT_PREFS.name;
+  if (m.email === user.email && !sample) return;
+  mutate(() => {
+    m.email = user.email;
+    if (sample) {
+      m.name = S.prefs.name && S.prefs.name !== DEFAULT_PREFS.name ? S.prefs.name : user.name;
+      if (m.title === DEFAULT_PREFS.title) m.title = '';
+    }
+    if (S.prefs.name === DEFAULT_PREFS.name) S.prefs.name = m.name;
+    if (S.prefs.title === DEFAULT_PREFS.title) S.prefs.title = '';
+  });
+}
 export async function signedIn(user, fresh) {
   S.ui.user = user;
   await pullRemote(fresh);
+  syncProfile(user);
   if (hasSample(D()))
     setTimeout(
       () =>
