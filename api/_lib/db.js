@@ -17,6 +17,8 @@ async function migrate(q) {
   await q`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text UNIQUE`;
   await q`CREATE TABLE IF NOT EXISTS sessions (token_hash text PRIMARY KEY, user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires_at timestamptz NOT NULL)`;
   await q`CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions(user_id)`;
+  await q`CREATE TABLE IF NOT EXISTS invites (token_hash text PRIMARY KEY, email text NOT NULL, invited_by text NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL, accepted_by text REFERENCES users(id) ON DELETE SET NULL)`;
+  await q`CREATE INDEX IF NOT EXISTS invites_email_idx ON invites(email)`;
   await q`CREATE TABLE IF NOT EXISTS workspace_urls (slug text PRIMARY KEY, user_id text NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE)`;
   await q`CREATE TABLE IF NOT EXISTS workspaces (user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, state jsonb NOT NULL, version integer NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now())`;
 }

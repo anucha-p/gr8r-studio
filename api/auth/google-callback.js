@@ -3,13 +3,16 @@ import { db } from '../_lib/db.js';
 import { readCookie, setCookie, startSession } from '../_lib/auth.js';
 import { STATE_COOKIE, configured, redirect, redirectUri } from '../_lib/google.js';
 import { route } from '../_lib/http.js';
+import { INVITE_COOKIE, acceptInvite, findInvite, noUsersYet } from '../_lib/invites.js';
 
 const fail = (res, code) => redirect(res, `/?auth_error=${code}#login`);
 
 export default route(['GET'], async (req, res) => {
   const { code, state, error } = req.query;
   const expected = readCookie(req, STATE_COOKIE);
+  const inviteToken = readCookie(req, INVITE_COOKIE);
   setCookie(res, '', 0, STATE_COOKIE);
+  setCookie(res, '', 0, INVITE_COOKIE);
   if (error) return fail(res, 'google_cancelled');
   if (!configured() || !code || !state || state !== expected) return fail(res, 'google_failed');
 
@@ -40,10 +43,14 @@ export default route(['GET'], async (req, res) => {
     [u] = await sql`UPDATE users SET google_id = ${g.sub} WHERE email = ${email} AND google_id IS NULL RETURNING id`;
   }
   if (!u) {
+    const invite = await findInvite(inviteToken);
+    if (!invite && !(await noUsersYet())) return fail(res, 'invite_required');
+    if (invite && invite.email !== email) return fail(res, 'invite_email_mismatch');
     const id = 'u_' + crypto.randomUUID();
     [u] =
       await sql`INSERT INTO users (id, email, name, pw_hash, google_id) VALUES (${id}, ${email}, ${g.name || email.split('@')[0]}, '', ${g.sub}) ON CONFLICT DO NOTHING RETURNING id`;
     if (!u) return fail(res, 'google_failed');
+    if (invite) await acceptInvite(invite, u.id);
     isNew = true;
   }
   await startSession(res, u.id, true);

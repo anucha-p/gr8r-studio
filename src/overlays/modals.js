@@ -45,6 +45,8 @@ export function modalHtml(m) {
         'sm',
         `${H(m.title)}<form class="modal-b" data-submit="promptSubmit"><div class="field"><label class="label" for="prompt-in">${esc(m.label)}</label><input class="input" id="prompt-in" value="${esc(m.value || '')}" autofocus></div></form><div class="modal-f"><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="promptSubmit">${esc(m.ok || 'Save')}</button></div>`,
       );
+    case 'inviteLinks':
+      return wrap('', inviteLinksModal(m, H));
     case 'shortcuts':
       return wrap('lg', shortcutsModal(H));
     case 'team':
@@ -331,7 +333,7 @@ export function shareModal(m, H) {
 }
 export function inviteModal(m, H) {
   const err = S.ui.errors.invite;
-  return `${H('Invite to ' + esc(D().ws.name), 'Invited people get an email with a link to join.')}
+  return `${H('Invite to ' + esc(D().ws.name), S.ui.user ? "You'll get a private sign-up link for each person to send them yourself." : 'Invited people get an email with a link to join.')}
   <form class="modal-b" data-submit="submitInvite">
     <div class="field"><label class="label" for="inv-emails">Email addresses</label><textarea class="textarea ${err ? 'is-error' : ''}" id="inv-emails" placeholder="name@company.com, another@company.com" rows="3" autofocus>${esc(S.ui.inviteDraft || '')}</textarea>${err ? `<span class="err">${ic('circle-alert', 12)}${err}</span>` : '<span class="hint">Separate multiple addresses with commas.</span>'}</div>
     <div class="row" style="gap:12px"><div class="field grow"><label class="label" for="inv-role">Role</label><select class="select" id="inv-role">${['Member', 'Admin', 'Guest'].map(r => `<option>${r}</option>`).join('')}</select></div>
@@ -340,7 +342,20 @@ export function inviteModal(m, H) {
       .join('')}</select></div></div>
     <div class="alert info">${ic('info', 14)}<span><b>Guests</b> can only see projects they're added to and can't create projects.</span></div>
   </form>
-  <div class="modal-f"><button class="btn btn-ghost" data-a="copyInviteLink">${ic('link', 14)}Copy invite link</button><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="submitInvite" id="inv-submit">Send invites</button></div>`;
+  <div class="modal-f">${S.ui.user ? '' : `<button class="btn btn-ghost" data-a="copyInviteLink">${ic('link', 14)}Copy invite link</button>`}<span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="submitInvite" id="inv-submit">${S.ui.user ? 'Create invite links' : 'Send invites'}</button></div>`;
+}
+/* The links createInvites() made: one row per address, each with a copy button. */
+export function inviteLinksModal(m, H) {
+  const ok = m.links.filter(l => l.link);
+  return `${H('Send these invite links', `Each link works once, for that email address, for 14 days. Send it to the person yourself (email, chat…).`)}
+  <div class="modal-b" style="gap:10px">${m.links
+    .map(l =>
+      l.link
+        ? `<div class="field"><span class="label">${esc(l.email)}</span><div class="row" style="gap:6px"><input class="input grow" readonly value="${esc(l.link)}" aria-label="Invite link for ${esc(l.email)}" onfocus="this.select()"><button class="btn btn-secondary" data-a="copyText" data-text="${esc(l.link)}">${ic('copy', 14)}Copy</button></div></div>`
+        : `<div class="alert danger">${ic('circle-alert', 14)}<span><b>${esc(l.email)}</b>: ${esc(l.error)}</span></div>`,
+    )
+    .join('')}<span class="hint">Lost a link? Open the person on the Members page and choose <b>Resend invite</b> to make a new one.</span></div>
+  <div class="modal-f"><span class="sp"></span>${ok.length > 1 ? `<button class="btn btn-secondary" data-a="copyText" data-text="${esc(ok.map(l => `${l.email}: ${l.link}`).join('\n'))}">${ic('copy', 14)}Copy all</button>` : ''}<button class="btn btn-primary" data-a="closeModal">Done</button></div>`;
 }
 export function confirmModal(m) {
   const needs = m.typeName;
