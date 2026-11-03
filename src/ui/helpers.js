@@ -2,7 +2,7 @@
 import { TODAY, diffD, esc, parse, relDate } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { LB, PR, PSTAT, ST } from '../core/constants.js';
-import { D, S, mem, pColor } from '../core/store.js';
+import { D, mem, pColor } from '../core/store.js';
 
 export function av(id, cls = '', tip = true) {
   const m = mem(id);
@@ -82,11 +82,10 @@ export const FT = {
   link: { c: '#3B82C4', i: 'link', n: 'Link' },
   other: { c: '#6B7280', i: 'file', n: 'File' },
 };
-/* Where a file's contents can be fetched: the files API for uploads stored on the server, an
-   in-memory object URL for files added in the local demo, or null (only metadata was kept). */
-export function fileSrc(f, download) {
-  if (f.path) return `/api/files?path=${encodeURIComponent(f.path)}${download ? '&download=1' : ''}`;
-  return S.ui.localFiles?.[f.id] || null;
+/* Attachments are links now; files listed from earlier (sample data, or the brief time uploads
+   existed) kept only their name, so there are no contents to fetch. */
+export function fileSrc() {
+  return null;
 }
 export const fileExt = f => (f.name.split('.').pop() || '').toLowerCase();
 export const linkHost = url => {

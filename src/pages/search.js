@@ -27,7 +27,7 @@ export function pageSearch() {
     ['tasks', 'Tasks'],
     ['projects', 'Projects'],
     ['people', 'People'],
-    ['files', 'Files'],
+    ['files', 'Links'],
     ['comments', 'Comments'],
   ];
   const total = Object.values(r).reduce((a, b) => a + b.length, 0);
@@ -76,7 +76,7 @@ export function pageSearch() {
             ) +
             sec(
               'files',
-              'Files',
+              'Links',
               r.files
                 .map(
                   f =>

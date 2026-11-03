@@ -23,7 +23,7 @@ export const PTABS = [
   ['table', 'Table', 'table-2'],
   ['calendar', 'Calendar', 'calendar'],
   ['timeline', 'Timeline', 'chart-gantt'],
-  ['files', 'Files', 'paperclip'],
+  ['files', 'Links', 'link'],
   ['activity', 'Activity', 'activity'],
 ];
 

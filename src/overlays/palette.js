@@ -151,7 +151,7 @@ export function paletteItems() {
     });
   if (sc === 'all' || sc === 'files')
     groups.push({
-      name: 'Files',
+      name: 'Links',
       items: r.files.slice(0, lim).map(f => ({
         icon: FT[f.type].i,
         name: f.name,
@@ -204,7 +204,7 @@ export function paletteHtml() {
             ['tasks', 'Tasks', 'circle-check'],
             ['projects', 'Projects', 'folder'],
             ['people', 'People', 'users'],
-            ['files', 'Files', 'paperclip'],
+            ['files', 'Links', 'link'],
             ['comments', 'Comments', 'message-square'],
           ]
             .map(([k, n, i]) => `<button role="tab" class="${pl.scope === k ? 'on' : ''}" data-a="palScope" data-v="${k}">${ic(i, 12)}${n}</button>`)

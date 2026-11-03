@@ -4,7 +4,7 @@
 import { MOD, TODAY, ago, diffD, esc, fmtDate, parse, relDate } from '../core/utils.js';
 import { ic } from '../core/icons.js';
 import { D, S, commentsOf, isOver, mem, pColor, proj, task } from '../core/store.js';
-import { av, filePrev, fileType, fmtComment, FT, lbl, linkHost, progBar } from '../ui/helpers.js';
+import { av, filePrev, fmtComment, FT, lbl, linkHost, progBar } from '../ui/helpers.js';
 import { fxc } from '../shell/render.js';
 import { cellAssignee, cellDue, cellPrio, cellProject, cellStatus } from '../components/task-list.js';
 import { modalHtml } from './modals.js';
@@ -35,7 +35,6 @@ export function drawerHtml(t) {
   const acts = D().activity.filter(a => a.task === t.id);
   const tab = u.drawerTab;
   const prop = (icon, label, val) => `<dt>${ic(icon, 14)}${label}</dt><dd>${val}</dd>`;
-  const ups = (u.uploads || []).filter(x => x.task === t.id);
   const ment =
     u.mention && u.mention.tid === t.id
       ? D()
@@ -96,9 +95,8 @@ export function drawerHtml(t) {
         <div class="subt" style="color:var(--text-3)">${ic('plus', 15)}<input class="inline-in" id="d-sub" data-key-enter="addSub" data-id="${t.id}" placeholder="Add subtask" aria-label="Add subtask" style="font-size:13.5px"></div>
       </div>
 
-      <div class="dsec"><div class="dsec-h"><h3>Attachments</h3><span class="cnt">${t.attachments.length}</span><div class="acts"><label class="btn btn-sm btn-ghost" style="cursor:pointer">${ic('upload', 13)}Upload<input type="file" multiple hidden data-in="uploadFiles" data-task="${t.id}" data-project="${t.project}"></label><button class="btn btn-sm btn-ghost" data-a="attachLink" data-id="${t.id}">${ic('link', 13)}Link</button>${D().files.some(f => f.project === t.project && !t.attachments.some(a => a.id === f.id)) ? `<button class="btn btn-sm btn-ghost" data-a="attachFiles" data-id="${t.id}">${ic('folder-open', 13)}From project</button>` : ''}</div></div>
-        ${ups.map(x => `<div class="upl" style="margin-bottom:6px"><span class="ftype" style="--c:${FT[fileType(x.name)].c}">${ic(FT[fileType(x.name)].i, 14)}</span><div class="grow"><div class="row"><span class="trunc">${esc(x.name)}</span><span class="sp"></span><span class="faint num" id="upct-${x.id}" style="font-size:11px">${x.pct}%</span></div><div class="prog" style="margin-top:5px"><i id="upbar-${x.id}" style="width:${x.pct}%"></i></div></div></div>`).join('')}
-        ${t.attachments.length ? `<div class="att">${t.attachments.map(f => `<div class="attc" data-a="filePreview" data-tid="${t.id}" data-aid="${f.id}" role="button" tabindex="0">${filePrev(f)}<div class="fi"><div class="trunc" style="font-weight:500">${esc(f.name)}</div><div class="faint trunc">${f.type === 'link' ? esc(linkHost(f.url)) : `${FT[f.type]?.n || 'File'} · ${f.size}`}</div></div><button class="ibtn ibtn-xs x" data-a="rmAttach" data-id="${t.id}" data-aid="${f.id}" aria-label="Remove attachment">${ic('x', 12)}</button></div>`).join('')}</div>` : !ups.length ? `<label class="dropzone" style="padding:12px" data-dropzone-task="${t.id}">${ic('paperclip', 15)}<span>Drop files or click to upload</span><input type="file" multiple hidden data-in="uploadFiles" data-task="${t.id}" data-project="${t.project}"></label>` : ''}
+      <div class="dsec"><div class="dsec-h"><h3>Links</h3><span class="cnt">${t.attachments.length}</span><div class="acts"><button class="btn btn-sm btn-ghost" data-a="attachLink" data-id="${t.id}">${ic('plus', 13)}Add link</button>${D().files.some(f => f.project === t.project && !t.attachments.some(a => a.id === f.id)) ? `<button class="btn btn-sm btn-ghost" data-a="attachFiles" data-id="${t.id}">${ic('folder-open', 13)}From project</button>` : ''}</div></div>
+        ${t.attachments.length ? `<div class="att">${t.attachments.map(f => `<div class="attc" data-a="filePreview" data-tid="${t.id}" data-aid="${f.id}" role="button" tabindex="0">${filePrev(f)}<div class="fi"><div class="trunc" style="font-weight:500">${esc(f.name)}</div><div class="faint trunc">${f.type === 'link' ? esc(linkHost(f.url)) : `${FT[f.type]?.n || 'File'} · ${f.size}`}</div></div><button class="ibtn ibtn-xs x" data-a="rmAttach" data-id="${t.id}" data-aid="${f.id}" aria-label="Remove attachment">${ic('x', 12)}</button></div>`).join('')}</div>` : `<button class="dropzone" style="padding:12px;width:100%" data-a="attachLink" data-id="${t.id}">${ic('link', 15)}<span>Add a link to a document, folder or page</span></button>`}
       </div>
 
       <div class="dsec">
@@ -117,7 +115,7 @@ export function drawerHtml(t) {
           ${cs.length ? cs.map(commentHtml).join('') : `<p class="faint" style="font-size:13px;margin:10px 0">No comments yet. Start the conversation.</p>`}
           <div class="row" style="align-items:flex-start;gap:10px;margin-top:8px">${av(D().me, 'md', false)}<div class="grow" style="position:relative">
             <div class="cbox"><textarea id="d-cmt" data-in="draft" data-id="${t.id}" data-key-mod-enter="postComment" placeholder="Leave a comment… type @ to mention" aria-label="Comment" rows="2" data-autosize>${esc(u.drafts[t.id] || '')}</textarea>
-            <div class="row"><button class="ibtn ibtn-xs" data-a="insertAt" data-id="${t.id}" data-tip="Mention someone" aria-label="Mention">${ic('at-sign', 14)}</button><label class="ibtn ibtn-xs" data-tip="Attach file" style="cursor:pointer">${ic('paperclip', 14)}<input type="file" multiple hidden data-in="uploadFiles" data-task="${t.id}" data-project="${t.project}"></label><span class="sp"></span><span class="faint hide-m" style="font-size:11px">${MOD}+Enter</span><button class="btn btn-primary btn-sm" data-a="postComment" data-id="${t.id}">Comment</button></div></div>
+            <div class="row"><button class="ibtn ibtn-xs" data-a="insertAt" data-id="${t.id}" data-tip="Mention someone" aria-label="Mention">${ic('at-sign', 14)}</button><button class="ibtn ibtn-xs" data-a="attachLink" data-id="${t.id}" data-tip="Add a link" aria-label="Add a link">${ic('link', 14)}</button><span class="sp"></span><span class="faint hide-m" style="font-size:11px">${MOD}+Enter</span><button class="btn btn-primary btn-sm" data-a="postComment" data-id="${t.id}">Comment</button></div></div>
             ${ment.length ? `<div class="pop" style="position:absolute;top:auto;bottom:calc(100% + 4px);left:0">${ment.map(m => `<button class="mi" data-a="pickMention" data-id="${t.id}" data-name="${esc(m.name)}">${av(m.id, 'sm', false)}${esc(m.name)}<span class="r">${esc(m.title)}</span></button>`).join('')}</div>` : ''}
           </div></div>`
             : `
