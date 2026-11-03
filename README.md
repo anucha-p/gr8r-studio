@@ -90,6 +90,8 @@ Vercel serverless functions in `api/` with a [Neon](https://neon.tech) Postgres 
 | `/api/workspace`     | GET / PUT           | the user's workspace (`{ data, prefs, views }`)                                  |
 | `/api/workspace-url` | GET / POST          | check or claim the workspace address (`yoursite/<slug>`), unique across accounts |
 | `/api/invites`       | GET / POST / DELETE | check an invite link (no sign-in), list, create or revoke the user's invites     |
+| `/api/auth/password` | POST                | `{ current, next }` → changes the password, signs out other sessions             |
+| `/api/sessions`      | GET / DELETE        | the user's signed-in devices; sign out one (`?id=`) or all others (`?others=1`)  |
 
 Passwords are hashed with scrypt; sessions are random tokens in an `HttpOnly` cookie, stored hashed.
 The workspace is saved as one JSON document with a version number, so a stale tab gets a 409 and

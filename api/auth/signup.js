@@ -25,6 +25,6 @@ export default route(['POST'], async (req, res, { name, email, password, invite:
     await sql`INSERT INTO users (id, email, name, pw_hash) VALUES (${id}, ${email}, ${name}, ${await hashPassword(password)}) ON CONFLICT (email) DO NOTHING RETURNING id`;
   if (!rows.length) return json(res, 409, { error: 'An account with this email already exists', field: 'email' });
   if (invite) await acceptInvite(invite, id);
-  await startSession(res, id, true);
+  await startSession(req, res, id, true);
   json(res, 201, { user: { id, email, name } });
 });

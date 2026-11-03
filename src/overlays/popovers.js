@@ -216,14 +216,19 @@ export function popHtml(p) {
       break;
     }
     case 'ws':
-      inner = `<div class="mh">Workspaces</div>${D()
-        .workspaces.map(
+      inner = `<div class="mh">Workspaces</div>${(S.ui.user
+        ? D()
+            .workspaces.filter(w => w.name === D().ws.name)
+            .slice(0, 1)
+        : D().workspaces
+      )
+        .map(
           w =>
-            `<button class="mi" data-a="switchWs" data-v="${w.id}">${wsLogo(w, 20)}<span class="grow">${esc(w.name)}</span><span class="faint" style="font-size:11px">${w.plan}</span>${w.name === D().ws.name ? `<span class="ck">${ic('check', 14)}</span>` : ''}</button>`,
+            `<button class="mi" data-a="switchWs" data-v="${w.id}">${wsLogo(w, 20)}<span class="grow">${esc(w.name)}</span>${S.ui.user ? '' : `<span class="faint" style="font-size:11px">${w.plan}</span>`}${w.name === D().ws.name ? `<span class="ck">${ic('check', 14)}</span>` : ''}</button>`,
         )
         .join(
           '',
-        )}<div class="msep"></div><button class="mi" data-a="newWorkspace">${ic('plus', 15)}Create workspace</button><button class="mi" data-a="go" data-r="settings" data-sec="workspace">${ic('settings', 15)}Workspace settings</button><button class="mi" data-a="invite">${ic('user-plus', 15)}Invite members</button><div class="msep"></div><button class="mi" data-a="signOut">${ic('log-out', 15)}Sign out</button>`;
+        )}<div class="msep"></div>${S.ui.user ? '' : `<button class="mi" data-a="newWorkspace">${ic('plus', 15)}Create workspace</button>`}<button class="mi" data-a="go" data-r="settings" data-sec="workspace">${ic('settings', 15)}Workspace settings</button><button class="mi" data-a="invite">${ic('user-plus', 15)}Invite members</button><div class="msep"></div><button class="mi" data-a="signOut">${ic('log-out', 15)}Sign out</button>`;
       style = 'width:260px';
       break;
     case 'user':
@@ -243,8 +248,14 @@ export function popHtml(p) {
       style = 'width:260px';
       break;
     case 'help':
-      inner = `<div class="mh">Help & resources</div><button class="mi" data-a="shortcuts">${ic('keyboard', 15)}Keyboard shortcuts<span class="r"><kbd>?</kbd></span></button><button class="mi" data-a="openPalette">${ic('command', 15)}Command menu<span class="r"><kbd>${MOD}K</kbd></span></button><button class="mi" data-a="go" data-r="system">${ic('component', 15)}Design system</button><button class="mi" data-a="go" data-r="states">${ic('layers', 15)}System states</button>
-      <div class="msep"></div><div class="mh">Prototype</div><button class="mi" data-a="startOnboarding">${ic('sparkles', 15)}Replay onboarding</button><button class="mi" data-a="toggleOffline">${ic(S.ui.offline ? 'wifi' : 'wifi-off', 15)}${S.ui.offline ? 'Go back online' : 'Simulate offline'}</button><button class="mi" data-a="go" data-r="nowhere">${ic('file-question', 15)}Open a broken link</button>${S.ui.user ? (hasSample(D()) ? `<button class="mi" data-a="removeSample">${ic('trash-2', 15)}Remove sample data</button>` : '') : `<button class="mi" data-a="resetDemo">${ic('rotate-ccw', 15)}Reset demo data</button>`}`;
+      inner = `<div class="mh">Help & resources</div><button class="mi" data-a="shortcuts">${ic('keyboard', 15)}Keyboard shortcuts<span class="r"><kbd>?</kbd></span></button><button class="mi" data-a="openPalette">${ic('command', 15)}Command menu<span class="r"><kbd>${MOD}K</kbd></span></button>${
+        S.ui.user
+          ? hasSample(D())
+            ? `<div class="msep"></div><button class="mi" data-a="removeSample">${ic('trash-2', 15)}Remove sample data</button>`
+            : ''
+          : `<button class="mi" data-a="go" data-r="system">${ic('component', 15)}Design system</button><button class="mi" data-a="go" data-r="states">${ic('layers', 15)}System states</button>
+      <div class="msep"></div><div class="mh">Prototype</div><button class="mi" data-a="startOnboarding">${ic('sparkles', 15)}Replay onboarding</button><button class="mi" data-a="toggleOffline">${ic(S.ui.offline ? 'wifi' : 'wifi-off', 15)}${S.ui.offline ? 'Go back online' : 'Simulate offline'}</button><button class="mi" data-a="go" data-r="nowhere">${ic('file-question', 15)}Open a broken link</button><button class="mi" data-a="resetDemo">${ic('rotate-ccw', 15)}Reset demo data</button>`
+      }`;
       style = 'width:260px';
       break;
     case 'sort': {

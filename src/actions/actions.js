@@ -10,6 +10,7 @@ import {
   DEFAULT_PREFS,
   S,
   STORE_KEY,
+  loadAccount,
   pullRemote,
   allTasks,
   canSee,
@@ -2081,16 +2082,33 @@ IN.pwStrength = el => {
 };
 A.savePassword = () => {
   const e = (S.ui.errors = {});
-  const cur = $('#pw-cur').value,
+  const cur = $('#pw-cur')?.value || '',
     nw = $('#pw-new').value,
     cf = $('#pw-conf').value;
   S.ui.pwDone = false;
-  if (!cur) e.pwCur = 'Enter your current password';
+  const needCur = !S.ui.user || S.ui.acct?.hasPassword;
+  if (needCur && !cur) e.pwCur = 'Enter your current password';
   if (nw.length < 10 || !/[0-9\W]/.test(nw)) e.pwNew = 'Use at least 10 characters, including a number or symbol';
   if (nw !== cf) e.pwConf = "Passwords don't match";
   if (Object.keys(e).length) {
     render();
     return;
+  }
+  if (S.ui.user) {
+    $('#pw-save')?.classList.add('is-loading');
+    return api('auth/password', { method: 'POST', body: { current: cur, next: nw } })
+      .then(async () => {
+        S.ui.pwDone = true;
+        S.ui.pwNew = '';
+        await loadAccount();
+        render();
+        toast('Password updated');
+      })
+      .catch(err => {
+        S.ui.errors = err.body?.field ? { [err.body.field]: err.message } : {};
+        render();
+        if (!err.body?.field) toast(err.body?.error || "Couldn't update your password. Try again.", { kind: 'err' });
+      });
   }
   loadingBtn('pw-save', 800, () => {
     S.ui.pwDone = true;
@@ -2100,6 +2118,14 @@ A.savePassword = () => {
   });
 };
 A.revokeSession = el => {
+  if (S.ui.user)
+    return api('sessions?id=' + el.dataset.id, { method: 'DELETE' })
+      .then(() => loadAccount())
+      .then(() => {
+        render();
+        toast('Session signed out');
+      })
+      .catch(e => toast(e.body?.error || "Couldn't sign out that session. Try again.", { kind: 'err' }));
   mutate(() => {
     D().sessions = D().sessions.filter(s => s.id !== el.dataset.id);
   });
@@ -2113,6 +2139,14 @@ A.revokeAll = () =>
     danger: true,
     icon: 'log-out',
     run: () => {
+      if (S.ui.user)
+        return api('sessions?others=1', { method: 'DELETE' })
+          .then(() => loadAccount())
+          .then(() => {
+            render();
+            toast('Signed out of other sessions');
+          })
+          .catch(() => toast("Couldn't sign out the other sessions. Try again.", { kind: 'err' }));
       mutate(() => {
         D().sessions = D().sessions.filter(s => s.cur);
       });

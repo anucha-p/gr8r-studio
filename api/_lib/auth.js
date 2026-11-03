@@ -22,11 +22,12 @@ export async function verifyPassword(pw, stored) {
 
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 
-export async function startSession(res, userId, remember) {
+export async function startSession(req, res, userId, remember) {
   const token = crypto.randomBytes(32).toString('base64url');
   const days = remember ? 30 : 1;
   const sql = await db();
-  await sql`INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (${sha(token)}, ${userId}, now() + ${days + ' days'}::interval)`;
+  const ua = String(req.headers['user-agent'] || '').slice(0, 300);
+  await sql`INSERT INTO sessions (token_hash, user_id, expires_at, user_agent) VALUES (${sha(token)}, ${userId}, now() + ${days + ' days'}::interval, ${ua})`;
   setCookie(res, token, remember ? days * DAY : null);
 }
 export async function endSession(req, res) {
@@ -42,7 +43,7 @@ export async function currentUser(req) {
   if (!token) return null;
   const sql = await db();
   const rows =
-    await sql`SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ${sha(token)} AND s.expires_at > now()`;
+    await sql`SELECT u.id, u.email, u.name, s.token_hash AS session FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ${sha(token)} AND s.expires_at > now()`;
   return rows[0] || null;
 }
 

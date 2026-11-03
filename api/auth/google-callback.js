@@ -53,6 +53,6 @@ export default route(['GET'], async (req, res) => {
     if (invite) await acceptInvite(invite, u.id);
     isNew = true;
   }
-  await startSession(res, u.id, true);
+  await startSession(req, res, u.id, true);
   redirect(res, isNew ? '/?auth=new' : '/');
 });
