@@ -11,6 +11,7 @@ import { tlAfter } from '../views/timeline.js';
 import { renderLayer } from '../overlays/drawer.js';
 import { placePop } from '../overlays/popovers.js';
 import { renderAuth } from '../pages/auth.js';
+import { syncUrl } from './url.js';
 
 export const ROUTE_NAMES = {
   home: 'Home',
@@ -152,6 +153,7 @@ export function render() {
   const keep = $$('[data-keep]').map(el => [el.dataset.keep, el.scrollTop, el.scrollLeft]);
   $('#app').innerHTML = S.ui.auth ? renderAuth() : renderShell();
   $('#layer').innerHTML = renderLayer();
+  syncUrl();
   makeFocusable();
   keep.forEach(([k, t, l]) => {
     const el = document.querySelector(`[data-keep="${CSS.escape(k)}"]`);

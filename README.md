@@ -10,7 +10,7 @@ UI framework and no runtime dependency.
 
 ## Getting started
 
-Requires Node.js 22 (`.nvmrc`; `engines` pins `22.x` so Vercel never upgrades the major version on its own).
+Requires Node.js 24 (`.nvmrc`; `engines` pins `24.x` so Vercel never upgrades the major version on its own).
 
 ```bash
 npm install
@@ -81,18 +81,23 @@ Every push and pull request runs lint, the format check and a production build
 
 Vercel serverless functions in `api/` with a [Neon](https://neon.tech) Postgres database:
 
-| Route              | Method    | Purpose                                                 |
-| ------------------ | --------- | ------------------------------------------------------- |
-| `/api/auth/signup` | POST      | `{ name, email, password }` → creates account, signs in |
-| `/api/auth/login`  | POST      | `{ email, password, remember }` → signs in              |
-| `/api/auth/logout` | POST      | ends the session                                        |
-| `/api/auth/me`     | GET       | the signed-in user, or 401                              |
-| `/api/workspace`   | GET / PUT | the user's workspace (`{ data, prefs, views }`)         |
+| Route                | Method     | Purpose                                                                          |
+| -------------------- | ---------- | -------------------------------------------------------------------------------- |
+| `/api/auth/signup`   | POST       | `{ name, email, password }` → creates account, signs in                          |
+| `/api/auth/login`    | POST       | `{ email, password, remember }` → signs in                                       |
+| `/api/auth/logout`   | POST       | ends the session                                                                 |
+| `/api/auth/me`       | GET        | the signed-in user, or 401                                                       |
+| `/api/workspace`     | GET / PUT  | the user's workspace (`{ data, prefs, views }`)                                  |
+| `/api/workspace-url` | GET / POST | check or claim the workspace address (`yoursite/<slug>`), unique across accounts |
 
 Passwords are hashed with scrypt; sessions are random tokens in an `HttpOnly` cookie, stored hashed.
 The workspace is saved as one JSON document with a version number, so a stale tab gets a 409 and
 reloads the latest copy instead of overwriting it. Tables are created on the first request
 (`db/schema.sql` has the same SQL).
+
+**Workspace URLs.** The address bar mirrors the page as `/<workspace>/<page>`, e.g.
+`/acme/project/web/table`, `/acme/task/WEB-201` or `/acme/settings/profile` (`src/shell/url.js`).
+`vercel.json` rewrites every non-API path to `index.html` so these links open directly.
 
 When `/api` isn't reachable (plain `npm run dev`), the app runs as a local demo saved in the browser.
 To run with the backend locally, use `vercel dev` with `DATABASE_URL` in `.env.local`

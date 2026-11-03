@@ -1,7 +1,7 @@
 /* =====================================================================
    ACTIONS · INPUT HANDLERS · DRAG & DROP · KEYBOARD · INIT
    ===================================================================== */
-import { $, $$, TODAY, addD, dOff, diffD, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
+import { $, $$, SITE, TODAY, addD, dOff, diffD, esc, fmtDate, iso, parse, uid } from '../core/utils.js';
 import { PR, PSTAT, ST } from '../core/constants.js';
 import { blankWorkspace, hasSample, seed, stripSample } from '../data/seed.js';
 import { api } from '../core/api.js';
@@ -26,7 +26,8 @@ import {
 import { fileType, fsize } from '../ui/helpers.js';
 import { effectiveDark } from '../core/theme.js';
 import { mutate, toast } from '../ui/toast.js';
-import { autosize, focusKey, fxSet, go, render } from '../shell/render.js';
+import { ROUTE_NAMES, autosize, focusKey, fxSet, go, render } from '../shell/render.js';
+import { parsePath } from '../shell/url.js';
 import { viewOf } from '../shell/view-engine.js';
 import { allTemplates, closeModal, openModal } from '../overlays/modals.js';
 import { closePop, openPop, tgt } from '../overlays/popovers.js';
@@ -1978,12 +1979,16 @@ A.saveWorkspace = () => {
     toast("Workspace name can't be empty", { kind: 'err' });
     return;
   }
-  loadingBtn('ws-save', 600, () => {
+  const b = $('#ws-save');
+  b?.classList.add('is-loading');
+  setWorkspaceUrl(u).then(err => {
+    b?.classList.remove('is-loading');
+    if (err) return toast(err, { kind: 'err' });
     if (
       mutate(() => {
         const old = D().ws.name;
         D().ws.name = n;
-        D().ws.url = u || D().ws.url;
+        if (!S.ui.user) D().ws.url = u || D().ws.url;
         const w = D().workspaces.find(x => x.name === old);
         if (w) w.name = n;
       })
@@ -2164,8 +2169,48 @@ export const EMAIL_RE = /^\S+@\S+\.\S+$/;
 export function enterApp(msg) {
   S.ui.auth = null;
   S.ui.errors = {};
-  go(S.prefs.home || 'home');
+  // A workspace link opened while signed out lands on that page after sign-in.
+  const r = parsePath(location.pathname, ROUTE_NAMES);
+  if (r) {
+    go(r.route, r.params);
+    if (r.task) A.openTask({ dataset: { id: r.task } });
+  } else go(S.prefs.home || 'home');
   toast(msg);
+}
+/* Sets the page (and task drawer) from a workspace path before the first render. Returns false for
+   "/" or a path to another workspace (with a notice), so the caller picks the default page. */
+export function openPath(pathname) {
+  const r = parsePath(pathname, ROUTE_NAMES);
+  if (!r) {
+    const other = pathname.split('/').filter(Boolean)[0];
+    if (other) setTimeout(() => toast(`There's no workspace at /${other} you can open. Showing ${D().ws.name}.`, { kind: 'info', ms: 6000 }), 400);
+    return false;
+  }
+  S.ui.route = r.route;
+  S.ui.params = r.route === 'project' && !r.params.tab ? { ...r.params, tab: 'board' } : r.params;
+  if (r.task) S.ui.drawer = r.task;
+  return true;
+}
+/* Reserves this workspace's address on the server (unique across accounts) and adopts the
+   address the server keeps, so URLs match on every device. */
+async function claimUrl() {
+  try {
+    const r = await api('workspace-url', { method: 'POST', body: { url: D().ws.url || D().ws.name, auto: true } });
+    if (r.url !== D().ws.url) mutate(() => (D().ws.url = r.url));
+  } catch (e) {
+    console.warn('Could not reserve the workspace URL', e);
+  }
+}
+/* Claims a new address for the signed-in user; resolves to an error message or null. */
+export async function setWorkspaceUrl(url) {
+  if (!S.ui.user || url === D().ws.url) return null;
+  try {
+    const r = await api('workspace-url', { method: 'POST', body: { url } });
+    D().ws.url = r.url;
+    return null;
+  } catch (e) {
+    return e.body?.error || "Couldn't save the workspace URL. Try again.";
+  }
 }
 A.doLogin = () => {
   const e = (S.ui.errors = {});
@@ -2225,6 +2270,7 @@ export async function signedIn(user, fresh) {
   S.ui.user = user;
   await pullRemote(fresh);
   syncProfile(user);
+  await claimUrl();
   if (hasSample(D()))
     setTimeout(
       () =>
@@ -2371,11 +2417,25 @@ IN.onbWs = el => {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
   if (S.ui.errors.ws && el.value.trim()) S.ui.errors.ws = null;
+  checkUrl();
   render();
 };
+/* Asks the server whether the onboarding address is free (signed-in users only). */
+function checkUrl() {
+  clearTimeout(checkUrl._t);
+  const url = S.ui.onbData.url;
+  if (!S.ui.user || !url) return;
+  checkUrl._t = setTimeout(async () => {
+    const r = await api('workspace-url?url=' + encodeURIComponent(url)).catch(() => null);
+    if (!r || S.ui.onbData.url !== url) return;
+    S.ui.urlCheck = { url, ok: r.available };
+    if (S.ui.auth === 'onboarding') render();
+  }, 300);
+}
 IN.onbUrl = el => {
   S.ui.onbData.url = el.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
   S.ui.onbData.urlTouched = true;
+  checkUrl();
   render();
 };
 IN.onbProj = el => {
@@ -2425,7 +2485,7 @@ A.onbFinish = () => {
   mutate(() => {
     if (o.ws.trim()) {
       const c = ['#2F2E2A', '#5A67D8', '#23918A', '#C54B78'][D().workspaces.length % 4];
-      D().ws = { name: o.ws.trim(), url: o.url || 'workspace', c };
+      D().ws = { name: o.ws.trim(), url: S.ui.user ? D().ws.url : o.url || 'workspace', c };
       if (!D().workspaces.some(w => w.name === D().ws.name)) D().workspaces.push({ id: uid('w'), name: D().ws.name, c, plan: 'Free' });
     }
     S.prefs.defaultTab = { kanban: 'board', list: 'list', timeline: 'timeline', table: 'table' }[o.team] || 'board';
@@ -2462,4 +2522,10 @@ A.onbFinish = () => {
   S.ui.auth = null;
   go('project', { id: p.id, tab: S.prefs.defaultTab });
   toast(`Welcome to ${D().ws.name}`);
+  if (S.ui.user && o.url)
+    setWorkspaceUrl(o.url).then(err => {
+      if (err) return toast(`${err} Your address is ${SITE()}/${D().ws.url} — change it in Settings.`, { kind: 'err', ms: 8000 });
+      save();
+      render();
+    });
 };

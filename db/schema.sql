@@ -20,3 +20,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
   version    integer NOT NULL DEFAULT 1,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+-- Each user's workspace address (yoursite/<slug>); unique across all users.
+CREATE TABLE IF NOT EXISTS workspace_urls (
+  slug    text PRIMARY KEY,
+  user_id text NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE
+);

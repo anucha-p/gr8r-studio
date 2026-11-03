@@ -57,8 +57,9 @@ import './actions/archive.js';
 import { S, D, remote } from './core/store.js';
 import { ApiError, api } from './core/api.js';
 import { toast } from './ui/toast.js';
-import { A, signedIn } from './actions/actions.js';
+import { A, openPath, signedIn } from './actions/actions.js';
 import { ROUTE_NAMES, render, go } from './shell/render.js';
+import { parsePath } from './shell/url.js';
 
 /* Checks for a backend session. With no backend (plain `vite` dev server) the app stays a
    local demo saved in this browser; with one, the workspace loads from the server. */
@@ -105,7 +106,7 @@ const AUTH_ERRORS = {
   if (S.ui.backend && !signedInNow) S.ui.auth = ['login', 'signup'].includes(h) ? h : 'login';
   else if (authRoutes.includes(h)) S.ui.auth = h;
   else if (h && ROUTE_NAMES[h]) S.ui.route = h;
-  else S.ui.route = S.prefs.home || 'home';
+  else if (!openPath(location.pathname)) S.ui.route = S.prefs.home || 'home';
   if (authErr) S.ui.errors = { login: authErr };
   if (signedInNow && authNew) {
     S.ui.auth = 'onboarding';
@@ -113,6 +114,13 @@ const AUTH_ERRORS = {
   }
   render();
 })();
+
+// Back / forward between workspace URLs.
+addEventListener('popstate', () => {
+  if (S.ui.auth) return;
+  const r = parsePath(location.pathname, ROUTE_NAMES);
+  if (r) go(r.route, r.params, { back: true });
+});
 
 // Dev-only handle for debugging and screenshot tooling; stripped from production builds.
 if (import.meta.env.DEV) window.__gr8r = { S, D, A, go, render };
