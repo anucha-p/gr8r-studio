@@ -126,7 +126,8 @@ To run with the backend locally, use `vercel dev` with `DATABASE_URL` in `.env.l
    connect it to the project. This sets `DATABASE_URL`.
 2. Redeploy. The tables are created automatically.
 3. For file uploads and previews: **Storage → Create → Blob**, choose **private** access, and
-   connect it to the project. This sets `BLOB_READ_WRITE_TOKEN`; files are stored under
+   connect it to the project. This sets `BLOB_STORE_ID` (or `BLOB_READ_WRITE_TOKEN` on older
+   stores); redeploy afterwards. Files are stored under
    `u/<user id>/` and only their owner can open them.
 4. Optional, for **Continue with Google**: in Google Cloud Console → APIs & Services → Credentials,
    create an OAuth client ID (type _Web application_) with the authorized redirect URI
