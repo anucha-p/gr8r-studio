@@ -874,11 +874,10 @@ export async function handleFiles(files, ctx) {
     };
     try {
       if (S.ui.user) {
-        const { upload } = await import('@vercel/blob/client');
-        const blob = await upload(`u/${S.ui.user.id}/${file.name}`, file, {
+        const { uploadPresigned } = await import('@vercel/blob/client');
+        const blob = await uploadPresigned(`u/${S.ui.user.id}/${file.name}`, file, {
           access: 'private',
           handleUploadUrl: '/api/files-upload',
-          multipart: file.size > 20 * 1024 * 1024,
           onUploadProgress: e => progress(e.percentage),
         });
         rec.path = blob.pathname;
