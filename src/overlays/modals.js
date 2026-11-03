@@ -231,6 +231,9 @@ export const TEMPLATES = [
     tasks: ['Brain dump ideas', 'Pick top 3 priorities', 'Schedule focus time', 'Weekly review'],
   },
 ];
+/* Built-in templates plus the ones saved in this workspace ("Save as template"). */
+export const allTemplates = () => [...TEMPLATES, ...(D().templates || [])];
+
 export function projectModal(m, H) {
   const f = S.ui.pform;
   const err = S.ui.errors.pname;
@@ -262,7 +265,25 @@ export function projectModal(m, H) {
         .join('')}</select></div>
       <div class="field" style="flex:1;min-width:150px"><label class="label" for="p-due">Target date</label><input type="date" class="input" id="p-due" data-in="pform" data-f="due" value="${f.due || ''}"></div>
     </div>
-    ${m.edit ? '' : `<div class="field"><span class="label">Template</span><div class="tmpls" role="radiogroup">${TEMPLATES.map(t => `<button type="button" role="radio" aria-checked="${f.tmpl === t.id}" class="opt ${f.tmpl === t.id ? 'on' : ''}" data-a="pformSet" data-f="tmpl" data-v="${t.id}" style="padding:10px">${ic(t.icon, 16)}<b style="font-size:12.5px">${t.name}</b><span>${t.tasks.length ? t.tasks.length + ' starter tasks' : t.desc}</span></button>`).join('')}</div></div>`}
+    ${
+      m.edit
+        ? ''
+        : `<div class="field"><span class="label">Template</span><div class="tmpls" role="radiogroup">${allTemplates()
+            .map(
+              t =>
+                `<button type="button" role="radio" aria-checked="${f.tmpl === t.id}" class="opt ${f.tmpl === t.id ? 'on' : ''}" data-a="pformSet" data-f="tmpl" data-v="${t.id}" style="padding:10px">${ic(t.icon, 16)}<b style="font-size:12.5px">${esc(t.name)}</b><span>${t.custom ? 'Your template · ' : ''}${t.tasks.length ? t.tasks.length + ' starter tasks' : esc(t.desc)}</span></button>`,
+            )
+            .join('')}</div>${
+            D().templates?.length
+              ? `<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><span class="faint" style="font-size:12px">Your templates:</span>${D()
+                  .templates.map(
+                    t =>
+                      `<span class="chip">${esc(t.name)}<button type="button" class="ibtn ibtn-xs" data-a="delTemplate" data-id="${t.id}" aria-label="Delete template ${esc(t.name)}" data-tip="Delete template">${ic('x', 12)}</button></span>`,
+                  )
+                  .join('')}</div>`
+              : ''
+          }</div>`
+    }
   </form>
   <div class="modal-f"><span class="sp"></span><button class="btn btn-secondary" data-a="closeModal">Cancel</button><button class="btn btn-primary" data-a="submitProject">${m.edit ? 'Save changes' : 'Create project'}</button></div>`;
 }

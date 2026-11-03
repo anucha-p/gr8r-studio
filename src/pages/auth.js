@@ -3,7 +3,7 @@ import { esc } from '../core/utils.js';
 import { LOGO, ic } from '../core/icons.js';
 import { D, S } from '../core/store.js';
 import { effectiveDark } from '../core/theme.js';
-import { TEMPLATES } from '../overlays/modals.js';
+import { allTemplates } from '../overlays/modals.js';
 import { strengthMeter } from './settings.js';
 
 export function authShell(inner, topRight = '') {
@@ -117,9 +117,8 @@ export function renderOnboarding() {
       .join('')}</div>
     <div class="field"><span class="label">Team size</span><div class="seg" style="width:fit-content">${['Just me', '2-10', '11-50', '51-200', '200+'].map(s => `<button class="${o.size === s ? 'on' : ''}" data-a="onbSet" data-k="size" data-v="${s}">${s}</button>`).join('')}</div></div>${nav()}`;
   if (st === 3)
-    body = `<h1>Create your first project</h1><p class="sub">Start from a template or a blank project.</p><div class="field"><label class="label" for="o-proj">Project name</label><input class="input input-lg" id="o-proj" data-in="onbProj" value="${esc(o.proj)}" autofocus></div><div class="tmpls" role="radiogroup">${TEMPLATES.filter(
-      t => t.id !== 'blank',
-    )
+    body = `<h1>Create your first project</h1><p class="sub">Start from a template or a blank project.</p><div class="field"><label class="label" for="o-proj">Project name</label><input class="input input-lg" id="o-proj" data-in="onbProj" value="${esc(o.proj)}" autofocus></div><div class="tmpls" role="radiogroup">${allTemplates()
+      .filter(t => t.id !== 'blank')
       .map(t => opt('tmpl', t.id, t.icon, t.name, t.tasks.length + ' starter tasks'))
       .join('')}</div>${nav()}`;
   if (st === 4)
@@ -130,9 +129,9 @@ export function renderOnboarding() {
     <div class="panel">${[
       ['building-2', `Workspace “${esc(o.ws || 'My Workspace')}”`, 'gr8rstudio.com/' + esc(o.url || 'workspace')],
       [
-        TEMPLATES.find(t => t.id === o.tmpl)?.icon || 'folder',
+        allTemplates().find(t => t.id === o.tmpl)?.icon || 'folder',
         `Project “${esc(o.proj)}”`,
-        `${TEMPLATES.find(t => t.id === o.tmpl)?.tasks.length || 0} starter tasks · ${{ kanban: 'Board', list: 'List', timeline: 'Timeline', table: 'Table' }[o.team]} view`,
+        `${allTemplates().find(t => t.id === o.tmpl)?.tasks.length || 0} starter tasks · ${{ kanban: 'Board', list: 'List', timeline: 'Timeline', table: 'Table' }[o.team]} view`,
       ],
       [
         'user-plus',
